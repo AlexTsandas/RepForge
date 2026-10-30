@@ -17,6 +17,13 @@ export async function createExercise(req, res) {
     await newExercise.save();
     res.status(201).json(newExercise);
   } catch (error) {
+    if (error.name === "ValidationError") {
+      return res.status(400).json({ error: error.message });
+    }
+
+    if (error.code === 11000) {
+      return res.status(409).json({ error: "Exercise name already exists" });
+    }
     console.error("Error creating exercise:", error);
     res.status(500).json({ error: "Internal server error" });
   }
@@ -38,12 +45,21 @@ export async function getInfoDashboard(req, res) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const name = await User.findOne({ clerk_id: userId }).select("name");
-  const image_url = await User.findOne({ clerk_id: userId }).select("image_url");
-  const recentWorkouts = await CompletedWorkout.find({ clerk_id: userId }).sort({ completedAt: -1 }).limit(3);
-  const workoutsCompleted = await CompletedWorkout.find({ clerk_id: userId }).sort({ completedAt: -1 });
-
-  res.json({ name, image_url, recentWorkouts, workoutsCompleted });
+  try {
+    const user = await User.findOne({ clerk_id: userId })
+      .select("name image_url");
+    const recentWorkouts = await CompletedWorkout.find({ clerk_id: userId }).sort({ completedAt: -1 }).limit(3);
+    const workoutsCompleted = await CompletedWorkout.find({ clerk_id: userId }).sort({ completedAt: -1 });
+    res.status(200).json({
+      name: user?.name ?? null,
+      image_url: user?.image_url ?? null,
+      recentWorkouts,
+      workoutsCompleted
+    });
+  } catch (error) {
+    console.error("Error fetching dashboard info:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 }
 
 export async function getMyRoutines(req, res) {
@@ -51,22 +67,55 @@ export async function getMyRoutines(req, res) {
   if (!isAuthenticated) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  const routines = await Routine.find({ clerk_id: userId }).sort({ createdAt: -1 });
-  res.json(routines);
+  try {
+    const routines = await Routine.find({ clerk_id: userId }).sort({ createdAt: -1 });
+    res.status(200).json(routines);
+
+  } catch (error) {
+    console.error("Error fetching my routines:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 }
+
 
 export async function createRoutines(req, res) {
   const { isAuthenticated, userId } = getAuth(req);
   if (!isAuthenticated) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  const newRoutine = new Routine({
-    name: req.body.name,
-    exercises: req.body.exercises,
-    clerk_id: userId
-  });
-  await newRoutine.save();
-  res.status(201).json(newRoutine);
+  try {
+    const check = await Routine.countDocuments({ clerk_id: userId })
+    if (check >= 10) {
+      return res.status(400).json({ error: "You have reached the maximum number of routines (10)." });
+    }
+    const exerciseIds = req.body.exercises.map(exercise => exercise.exerciseId);
+    const uniqueIds = [...new Set(exerciseIds)];
+
+    const foundCount = await Exercise.countDocuments({
+      _id: { $in: uniqueIds }
+    });
+
+    if (foundCount !== uniqueIds.length) {
+      return res.status(400).json({
+        error: "One or more exercises do not exist."
+      });
+    }
+    const newRoutine = new Routine({
+      name: req.body.name,
+      exercises: req.body.exercises,
+      clerk_id: userId
+    });
+    await newRoutine.save();
+    res.status(201).json(newRoutine);
+
+
+  } catch (error) {
+    if (error.name === "ValidationError") {
+      return res.status(400).json({ error: error.message });
+    }
+    console.error("Error creating routine:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 }
 
 export async function getRoutineById(req, res) {
@@ -74,17 +123,23 @@ export async function getRoutineById(req, res) {
   if (!isAuthenticated) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  const routine = await Routine.findOne({
-    _id: req.params.id,
-    clerk_id: userId
-  });
+  try {
+    const routine = await Routine.findOne({
+      _id: req.params.id,
+      clerk_id: userId
+    });
 
-  if (!routine) {
-    return res.status(404).json({ error: "Routine not found" });
+    if (!routine) {
+      return res.status(404).json({ error: "Routine not found" });
+    }
+    res.status(200).json(routine);
+  } catch (error) {
+    if (error.name === "CastError") {
+      return res.status(400).json({ error: "Invalid routine ID" });
+    }
+    console.error("Error fetching routine by ID:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
-
-  res.json(routine);
-
 }
 
 export async function updateRoutine(req, res) {
@@ -92,49 +147,94 @@ export async function updateRoutine(req, res) {
   if (!isAuthenticated) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  const routine = await Routine.findOne({
-    _id: req.params.id,
-    clerk_id: userId
-  });
+  try {
+    const routine = await Routine.findOne({
+      _id: req.params.id,
+      clerk_id: userId
+    });
 
-  if (!routine) {
-    return res.status(404).json({ error: "Routine not found" });
-  }
-  if (req.body.name !== undefined) {
-    routine.name = req.body.name;
-  }
+    if (!routine) {
+      return res.status(404).json({ error: "Routine not found" });
+    }
+    if (req.body.name !== undefined) {
+      routine.name = req.body.name;
+    }
+    if (req.body.exercises !== undefined) {
+      if (
+        !Array.isArray(req.body.exercises) ||
+        req.body.exercises.some(exercise =>
+          exercise === null || typeof exercise !== "object"
+        )
+      ) {
+        return res.status(400).json({ error: "Invalid exercises list" });
+      }
+      const exerciseIds = req.body.exercises.map(exercise => exercise.exerciseId);
+      const uniqueIds = [...new Set(exerciseIds)];
 
-  if (req.body.exercises !== undefined) {
-    routine.exercises = req.body.exercises;
-  }
+      const foundCount = await Exercise.countDocuments({
+        _id: { $in: uniqueIds }
+      });
 
-  await routine.save();
-  res.json(routine);
+      if (foundCount !== uniqueIds.length) {
+        return res.status(400).json({
+          error: "One or more exercises do not exist."
+        });
+      } else {
+        routine.exercises = req.body.exercises;
+      }
+    }
+    await routine.save();
+    res.json(routine);
+  } catch (error) {
+    if (error.name === "CastError") {
+      return res.status(400).json({ error: "Invalid routine or exercise ID" });
+    }
+
+    if (error.name === "ValidationError") {
+      return res.status(400).json({ error: error.message });
+    }
+    console.error("Error updating routine:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 }
 
-export async function deleteRoutine(req, res){
+export async function deleteRoutine(req, res) {
   const { isAuthenticated, userId } = getAuth(req);
   if (!isAuthenticated) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  const result = await Routine.deleteOne({
-    _id: req.params.id,
-    clerk_id: userId
-  });
+  try {
+    const result = await Routine.deleteOne({
+      _id: req.params.id,
+      clerk_id: userId
+    });
 
-  if (result.deletedCount === 0) {
-    return res.status(404).json({ error: "Routine not found" });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: "Routine not found" });
+    }
+    res.status(200).json({ message: "Routine deleted" });
+  } catch (error) {
+    if (error.name === "CastError") {
+      return res.status(400).json({ error: "Invalid routine ID" });
+    }
+    console.error("Error deleting routine:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
-  res.status(200).json({ message: "Routine deleted" });
-} 
+}
+
 
 export async function getWorkoutHistory(req, res) {
   const { isAuthenticated, userId } = getAuth(req);
   if (!isAuthenticated) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  const completedWorkouts = await CompletedWorkout.find({ clerk_id: userId }).sort({ completedAt: -1 });
-  res.json(completedWorkouts);
+  try {
+    const completedWorkouts = await CompletedWorkout.find({ clerk_id: userId }).sort({ completedAt: -1 });
+    res.json(completedWorkouts);
+  } catch (error) {
+    console.error("Error fetching workout history:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 }
 
 export async function createActiveWorkout(req, res) {
@@ -142,17 +242,54 @@ export async function createActiveWorkout(req, res) {
   if (!isAuthenticated) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  const newWorkoutCompleted = new CompletedWorkout({
-    name: req.body.name,
-    exercises: req.body.exercises,
-    clerk_id: userId,
-    routineId: req.body.routineId
-  });
+  try {
+    if (
+      !Array.isArray(req.body.exercises) ||
+      req.body.exercises.some(exercise =>
+        exercise === null || typeof exercise !== "object"
+      )
+    ) {
+      return res.status(400).json({ error: "Invalid exercises list" });
+    }
+    const exerciseIds = req.body.exercises.map(exercise => exercise.exerciseId);
+    const uniqueIds = [...new Set(exerciseIds)];
 
-  await newWorkoutCompleted.save();
-  res.status(201).json(newWorkoutCompleted);
+    const foundCount = await Exercise.countDocuments({
+      _id: { $in: uniqueIds }
+    });
+
+    if (foundCount !== uniqueIds.length) {
+      return res.status(400).json({
+        error: "One or more exercises do not exist."
+      });
+    }
+    if (req.body.routineId !== undefined) {
+      const routine = await Routine.findOne({
+        _id: req.body.routineId,
+        clerk_id: userId
+      });
+
+      if (!routine) {
+        return res.status(404).json({ error: "Routine not found" });
+      }
+    }
+    const newWorkoutCompleted = new CompletedWorkout({
+      name: req.body.name,
+      exercises: req.body.exercises,
+      clerk_id: userId,
+      routineId: req.body.routineId
+    });
+    await newWorkoutCompleted.save();
+    res.status(201).json(newWorkoutCompleted);
+  } catch (error) {
+    if (error.name === "CastError") {
+      return res.status(400).json({ error: "Invalid routine or exercise ID" });
+    }
+
+    if (error.name === "ValidationError") {
+      return res.status(400).json({ error: error.message });
+    }
+    console.error("Error creating completed workout:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 }
-
-
-
-
