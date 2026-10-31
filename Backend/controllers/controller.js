@@ -1,7 +1,7 @@
 import User from "../models/users.js";
 import Exercise from "../models/exercises.js";
 import Routine from "../models/routines.js";
-import { getAuth } from "@clerk/express";
+import { getAuth,clerkClient } from "@clerk/express";
 import CompletedWorkout from "../models/completedWorkouts.js";
 
 
@@ -290,6 +290,33 @@ export async function createActiveWorkout(req, res) {
       return res.status(400).json({ error: error.message });
     }
     console.error("Error creating completed workout:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+export async function syncUsersData(req, res) {
+  const { isAuthenticated, userId } = getAuth(req);
+  if (!isAuthenticated) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  try {
+    const user= await User.findOne({ clerk_id: userId });
+    if (user) {
+      return res.status(200).json({ message: "Hello " + user.name });
+    }else{
+      const clerkUser = await clerkClient.users.getUser(userId);
+      const user ={
+        clerk_id: userId,
+        name: clerkUser.fullName || clerkUser.username || "User",
+        email: clerkUser.primaryEmailAddress?.emailAddress,
+        image_url: clerkUser.imageUrl
+      }
+      const newUser = new User(user);
+      await newUser.save();
+      return res.status(201).json({ message: "User data synced successfully" });
+      }
+    } catch (error) {
+    console.error("Error syncing user data:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 }

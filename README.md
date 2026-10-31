@@ -4,17 +4,20 @@ RepForge is a fitness app for creating routines, logging workouts, and tracking 
 
 ## Tech stack
 
-- Frontend: React, Vite, JavaScript/JSX, React Router
+- Frontend: React, Vite, JavaScript/JSX, React Router, Axios
 - Backend: Node.js, Express
 - Database: MongoDB, Mongoose
 - Authentication: Clerk
-- Planned: Tailwind CSS, Axios, Upstash Redis rate limiting, Google Gemini
+- Planned: Tailwind CSS, Upstash Redis rate limiting, Google Gemini
 
 ## Progress so far
 
 - Express backend and MongoDB connection are working.
-- React frontend is scaffolded with routing, a placeholder dashboard, and a working Clerk sign-in page.
+- React frontend includes routing, a placeholder dashboard, and Clerk sign-in and sign-up pages.
 - Clerk session tokens authenticate protected backend requests.
+- App-level user synchronization sends an authenticated request when Clerk is ready and the user is signed in. The backend recognizes an existing MongoDB user or creates a profile from Clerk's name, primary email, image, and user ID.
+- A shared Axios instance targets the local backend during development and the same website in production.
+- Express allows the local frontend through CORS during development and serves the built frontend in production.
 - Mongoose models are defined for users, exercises, routines, and completed workouts.
 - Routes delegate to functions in a separate controller file.
 - Routine creation, listing, detail retrieval, editing, and deletion are implemented.
@@ -39,17 +42,12 @@ Paths have no `/api` prefix. All endpoints except `GET /exercises` require Clerk
 | DELETE | `/myroutines/:id` | Delete an owned routine |
 | GET | `/workoutshistory` | List completed workouts, newest first |
 | POST | `/activeworkout` | Save a completed workout when Finish is clicked |
+| POST | `/sync-users` | Find or create the authenticated user's MongoDB profile |
 
 Routines contain ordered exercise references and planned set counts. Completed workouts store exercise-name snapshots and actual sets with weights and reps. An optional `routineId` records the source routine; workouts can also be created from scratch.
 
-## Validation so far
-
-Manual Postman checks confirmed authenticated routine CRUD, saving a completed workout from scratch, and retrieving workout history. Follow-up checks covered exercise creation and duplicate/missing-field errors, routine retrieval with invalid or missing IDs, rejecting a null exercise list during routine editing, and rejecting fractional workout reps. Controller syntax, imports, and all ten route mappings were checked after extraction.
-
-These are targeted manual checks, not a comprehensive automated test suite. The routine limit uses a count-before-save check; simultaneous creation requests are not protected atomically. Additional malformed-input handling in routine creation remains to be completed.
-
 ## Next steps
 
-Connect the dashboard UI to the backend, then build the routine pages and active-workout interface. Clerk-to-MongoDB profile synchronization, statistics and personal records, six-week reports and charts, rate limiting, AI features, and deployment remain planned.
+Build the dashboard's public welcome view and signed-in view, including profile information and recent workouts. Add access to the public exercise library, then build the routine pages and active-workout interface. Statistics and personal records, six-week reports and charts, rate limiting, AI features, and deployment remain planned.
 
-The project is in early development. The frontend currently supports sign-in and a placeholder dashboard; the full workout workflow is not yet available through the UI.
+The project is in early development. Authentication and the user-profile synchronization flow are implemented; the dashboard and workout interfaces are the next focus.

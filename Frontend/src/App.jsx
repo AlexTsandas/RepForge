@@ -1,20 +1,48 @@
 import { Routes, Route } from "react-router";
 import Dashboard from "./pages/dashboard.jsx";
 import SignInPage from './pages/sign-in.jsx'
+import SignUpPage from './pages/sign-up.jsx'
+import { useAuth } from "@clerk/react";
+import { useEffect } from "react";
+import api from "./lib/axios";
 
 function App() {
-  
+  const { isLoaded, isSignedIn, getToken } = useAuth();
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+
+    const syncUser = async () => {
+      try{
+      const token = await getToken();
+
+
+      const res = await api.post("/sync-users", {}, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      console.log(res.data);
+    }catch (error) {
+      console.error("Error syncing user data:", error);
+    }
+
+    };
+
+    syncUser();
+  }, [isLoaded, isSignedIn, getToken]);
 
   return (
-    
-      <div className="relative h-full w-full">
-      
-  
+
+    <div className="relative h-full w-full">
+
+
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/sign-in" element={<SignInPage />} />
+        <Route path="/sign-up" element={<SignUpPage />} />
       </Routes>
-    
+
     </div>
   )
 }
