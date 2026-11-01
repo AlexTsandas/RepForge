@@ -5,6 +5,7 @@ import SignUpPage from './pages/sign-up.jsx'
 import { useAuth } from "@clerk/react";
 import { useEffect } from "react";
 import api from "./lib/axios";
+import Header from "./components/Header.jsx";
 
 function App() {
   const { isLoaded, isSignedIn, getToken } = useAuth();
@@ -36,7 +37,7 @@ function App() {
 
     <div className="relative h-full w-full">
 
-
+      <Header />
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/sign-in" element={<SignInPage />} />
