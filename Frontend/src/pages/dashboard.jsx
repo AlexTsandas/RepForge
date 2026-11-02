@@ -1,6 +1,7 @@
 import { useAuth } from "@clerk/react";
 import { useSearchParams } from "react-router";
 import showdownImage from "@/assets/RepForge vs. HEVY_ Manga Showdown.png";
+import Loading from "@/components/Loading.jsx";
 
 const guestViews = {
   overview: {
@@ -23,8 +24,8 @@ const Dashboard = () => {
   const { isLoaded, isSignedIn } = useAuth();
   const [searchParams] = useSearchParams();
 
-  if (!isLoaded) return <p>Loading...</p>;
-
+  if (!isLoaded) return <Loading />;
+  
   if (isSignedIn) {
     return <div>Personal dashboard</div>;
   }

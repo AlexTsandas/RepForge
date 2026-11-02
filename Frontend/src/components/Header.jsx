@@ -48,7 +48,7 @@ const Header = () => {
 
           <NavigationMenuItem>
             <NavigationMenuLink
-              // render={<Link to="/exercises" />}
+               render={<Link to="/exercises" />}
               className="cursor-pointer text-lg font-medium"
             >
               Exercises

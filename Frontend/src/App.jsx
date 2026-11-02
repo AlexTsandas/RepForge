@@ -6,6 +6,8 @@ import { useAuth } from "@clerk/react";
 import { useEffect } from "react";
 import api from "./lib/axios";
 import Header from "./components/Header.jsx";
+import Exercises from "./pages/exercises.jsx";
+import { Toaster } from "@/components/ui/toast.jsx";
 
 function App() {
   const { isLoaded, isSignedIn, getToken } = useAuth();
@@ -42,8 +44,9 @@ function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/sign-in" element={<SignInPage />} />
         <Route path="/sign-up" element={<SignUpPage />} />
+        <Route path="/exercises" element={<Exercises />} />
       </Routes>
-
+      <Toaster />
     </div>
   )
 }
