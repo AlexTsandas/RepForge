@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button.jsx";
 import { Input } from "@/components/ui/input.jsx";
 import { toast } from "@/components/ui/toast.jsx";
+import{ useAuth } from "@clerk/react";
+import api from "@/lib/axios";
 
 import {
   Dialog,
@@ -40,6 +42,7 @@ const bodyPartOptions = [
   "Hamstrings",
   "Glutes",
   "Calves",
+  "Core",
 ];
 
 const FormCombobox = ({
@@ -88,7 +91,9 @@ const FormCombobox = ({
   );
 };
 
-const AddExerciseDialog = () => {
+const AddExerciseDialog = ({ onExerciseCreated }) => {
+  const { isLoaded, isSignedIn, getToken } = useAuth();
+
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [equipment, setEquipment] = useState(null);
@@ -106,19 +111,74 @@ const AddExerciseDialog = () => {
     }
   };
 
-  const handleValidate = (event) => {
+  const handleValidate = async (event) => {
     event.preventDefault();
 
-    if (!canValidate) return;
+    if (!canValidate || !isLoaded) return;
+
+    if (!isSignedIn) {
+      toast.add({
+        type: "error",
+        title: "Sign in required",
+        description: "Please sign in to add an exercise.",
+      });
+      return;
+    }
+
+    // Capture the values before closing and resetting the form.
+    const payload = {
+      name: name.trim(),
+      equipment: equipment.toLowerCase(),
+      bodyPart: bodyPart.toLowerCase(),
+    };
 
     handleOpenChange(false);
 
-    toast.add({
-      type: "info",
-      title: "Validation isn't available yet",
-      description: "Your exercise has not been added to the library.",
+    const toastId = toast.add({
+      type: "loading",
+      title: "Validating exercise",
+      description: "Your exercise is being checked. You can continue browsing.",
+      timeout: 0,
     });
+
+    try {
+      const token = await getToken();
+
+      const response = await api.post("/exercises", payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      toast.update(toastId, {
+        type: "success",
+        title: "Exercise added",
+        description: `${response.data.name} is now in the library.`,
+        timeout: 5000,
+      });
+
+      onExerciseCreated();
+    } catch (error) {
+      const status = error.response?.status;
+
+      toast.update(toastId, {
+        type: "error",
+        title: status === 400 ? "Invalid exercise" : "Could not add exercise",
+        description:
+          status === 400
+            ? "Check the exercise name, equipment, and body part."
+            : status === 409
+              ? "This exercise is already in the library."
+              : status === 401
+                ? "Please sign in and try again."
+                : "The request could not be completed. Please try again.",
+        timeout: 6000,
+      });
+    }
   };
+    if (!isLoaded || !isSignedIn) return null;
+
+ 
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>

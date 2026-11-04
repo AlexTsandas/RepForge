@@ -32,6 +32,7 @@ const bodyPartOptions = [
   "Hamstrings",
   "Glutes",
   "Calves",
+  "Core",
 ];
 
 const FilterCombobox = ({ id, label, options, value, onValueChange }) => {
@@ -73,14 +74,14 @@ const FilterCombobox = ({ id, label, options, value, onValueChange }) => {
   );
 };
 
-const Exercises = () => {
+const Exercises = ({ exerciseVersion, onExerciseCreated }) => {
   const [exercises, setExercises] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [equipmentFilter, setEquipmentFilter] = useState(null);
   const [bodyPartFilter, setBodyPartFilter] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
+  
   useEffect(() => {
     const fetchExercises = async () => {
       try {
@@ -95,7 +96,7 @@ const Exercises = () => {
     };
 
     fetchExercises();
-  }, []);
+  }, [exerciseVersion]);
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
 
@@ -139,7 +140,7 @@ const Exercises = () => {
           Exercises
         </h1>
 
-        <AddExerciseDialog />
+        <AddExerciseDialog onExerciseCreated={onExerciseCreated} />
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-[minmax(0,1fr)_220px_220px]">

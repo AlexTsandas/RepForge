@@ -1,6 +1,6 @@
 ﻿# RepForge
 
-RepForge is a fitness app for creating routines, logging workouts, and tracking strength progression. Planned AI features include routine generation, exercise validation, and workout reports comparing performance over the previous six weeks.
+RepForge is a fitness app for creating routines, logging workouts, and tracking strength progression. Gemini validates new exercise submissions and helps recognize duplicate exercise names. AI routine generation and workout reports comparing performance over the previous six weeks are planned.
 
 ## Tech stack
 
@@ -8,19 +8,23 @@ RepForge is a fitness app for creating routines, logging workouts, and tracking 
 - Backend: Node.js, Express
 - Database: MongoDB, Mongoose
 - Authentication: Clerk
-- Planned: Upstash Redis rate limiting, Google Gemini
+- AI: Google Gemini through the backend using `@google/genai`
+- Planned: Upstash Redis rate limiting
 
 ## Progress so far
 
 - Express backend and MongoDB connection are working.
-- React frontend includes routing, a public welcome page, and Clerk sign-in and sign-up pages. The signed-in dashboard is currently a placeholder.
+- React frontend includes routing, a public welcome page, and centered Clerk sign-in and sign-up pages. The signed-in dashboard is currently a placeholder.
 - Tailwind CSS 4 and shadcn/ui are configured for JavaScript/JSX, with `@/` imports pointing to `src`.
 - A shared header uses a dragon background and navigation across signed-in and signed-out views. Guests see sign-in and sign-up buttons; signed-in users get an avatar menu for Clerk profile settings and sign-out.
 - Guests can open routine and workout-history previews from the header through query parameters on the home page.
 - The public exercise library at `/exercises` is linked from the header and loads backend data through the shared Axios client, with a reusable orange loading spinner and an error message if loading fails.
-- Case-insensitive exercise-name search combines with clearable equipment and body-part filters. Equipment groups cover bodyweight, machines, and free weights (barbells and dumbbells); nine body parts are available, with a matching-exercise count and an empty-results message.
+- Case-insensitive exercise-name search combines with clearable equipment and body-part filters. Equipment groups cover bodyweight, machines, and free weights (barbells and dumbbells); ten body parts, including Core, are available, with a matching-exercise count and an empty-results message.
 - The responsive exercise grid shows only each exercise's image and name. Images load lazily and fit inside the cards without cropping.
-- An add-exercise dialog collects a name, one of four equipment types, and one of nine body parts. It enables Validate when all fields are filled, supports Cancel, and resets when closed. Validate currently shows an informational toast that validation is unavailable; validation and saving are planned. A shared toaster is mounted at app level.
+- Signed-in users can add exercises through a dialog with a name, one of four equipment types, and one of ten body parts. The dialog closes and resets when validation starts.
+- The backend uses Gemini to validate the exercise, correct its name, and compare it with existing exercises using the same equipment, including aliases and spelling variations. Confirmed duplicates are rejected before saving; MongoDB also checks unique exercise names.
+- A global loading toast updates to success, invalid-input, duplicate, or request-error feedback. Successful additions refresh the library, and notifications remain available during in-app navigation.
+- Catalog photos come from [free-exercise-db](https://github.com/yuhonas/free-exercise-db). Newly validated exercises receive a shared default image hosted with the frontend, with its path saved in MongoDB.
 - The welcome page pairs introductory text with an uncropped manga illustration, beside the text on larger screens and below it on smaller screens. The image has a warm glow, black border, rounded corners, and offset shadow.
 - The browser tab uses the RepForge title and a custom barbell favicon.
 - Clerk session tokens authenticate protected backend requests.
@@ -42,7 +46,7 @@ Paths have no `/api` prefix. All endpoints except `GET /exercises` require Clerk
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
 | GET | `/exercises` | List the exercise library |
-| POST | `/exercises` | Direct exercise creation handler; body-part support pending |
+| POST | `/exercises` | Validate an exercise with Gemini, check duplicates, and save it with a default image |
 | GET | `/dashboard` | Retrieve profile and workout data |
 | GET | `/myroutines` | List the signed-in user's routines |
 | POST | `/myroutines` | Create a routine |
@@ -57,6 +61,8 @@ Routines contain ordered exercise references and planned set counts. Completed w
 
 ## Next steps
 
-Connect the signed-in dashboard to backend profile and recent-workout data, and build routine pages, the workout-history interface, and the active-workout interface. Complete exercise creation by updating backend body-part handling and connecting Gemini validation, photo matching, saving, result notifications, and library refresh. Statistics and personal records, six-week reports and charts, AI routine generation, rate limiting, and deployment remain planned.
+Build the signed-in dashboard layout first: a personal welcome, routine-building guidance, Create a routine and Start an empty workout actions, three summary cards, and empty analytics sections.
 
-Authentication, user-profile synchronization, the public welcome experience, and exercise browsing are implemented. Remaining work includes exercise-creation integration and the signed-in workout interfaces.
+Next, build the routine builder, empty-workout setup, and shared active-workout page. After those flows produce completed workouts, connect dashboard statistics, recent sessions, a six-week weekly-activity bar chart, and an exercise-progress line chart. Gemini's dashboard role will be limited to selecting the exercise with the most impressive progress that week from backend-calculated summaries.
+
+Workout-history screens, personal records, six-week workout reports, AI routine generation, rate limiting, and deployment remain planned.

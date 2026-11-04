@@ -3,7 +3,7 @@ import Dashboard from "./pages/dashboard.jsx";
 import SignInPage from './pages/sign-in.jsx'
 import SignUpPage from './pages/sign-up.jsx'
 import { useAuth } from "@clerk/react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import api from "./lib/axios";
 import Header from "./components/Header.jsx";
 import Exercises from "./pages/exercises.jsx";
@@ -11,24 +11,29 @@ import { Toaster } from "@/components/ui/toast.jsx";
 
 function App() {
   const { isLoaded, isSignedIn, getToken } = useAuth();
+  const [exerciseVersion, setExerciseVersion] = useState(0);
+
+  const handleExerciseCreated = () => {
+    setExerciseVersion((current) => current + 1);
+  };
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return;
 
     const syncUser = async () => {
-      try{
-      const token = await getToken();
+      try {
+        const token = await getToken();
 
 
-      const res = await api.post("/sync-users", {}, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      console.log(res.data);
-    }catch (error) {
-      console.error("Error syncing user data:", error);
-    }
+        const res = await api.post("/sync-users", {}, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        console.log(res.data);
+      } catch (error) {
+        console.error("Error syncing user data:", error);
+      }
 
     };
 
@@ -44,7 +49,15 @@ function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/sign-in" element={<SignInPage />} />
         <Route path="/sign-up" element={<SignUpPage />} />
-        <Route path="/exercises" element={<Exercises />} />
+        <Route
+          path="/exercises"
+          element={
+            <Exercises
+              exerciseVersion={exerciseVersion}
+              onExerciseCreated={handleExerciseCreated}
+            />
+          }
+        />
       </Routes>
       <Toaster />
     </div>
