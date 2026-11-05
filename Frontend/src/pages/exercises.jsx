@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import api from "../lib/axios";
 import Loading from "@/components/Loading.jsx";
 import { Input } from "@/components/ui/input.jsx";
-import { Button } from "@/components/ui/button.jsx";
 import AddExerciseDialog from "@/components/AddExerciseDialog.jsx";
 
 import {

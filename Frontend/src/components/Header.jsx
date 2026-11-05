@@ -57,10 +57,10 @@ const Header = () => {
 
           <NavigationMenuItem>
             <NavigationMenuLink
-              // render={<Link to="/myroutines" />}
+              
               className="cursor-pointer text-lg font-medium"
               render={
-                !isSignedIn ? <Link to="/?preview=routines" /> : undefined
+                !isSignedIn ? <Link to="/?preview=routines" /> : <Link to="/myroutines" />
               }
             >
               My Routines
