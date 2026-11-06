@@ -72,7 +72,7 @@ const Header = () => {
               // render={<Link to="/workoutshistory" />}
               className="cursor-pointer text-lg font-medium"
               render={
-                !isSignedIn ? <Link to="/?preview=history" /> : undefined
+                !isSignedIn ? <Link to="/?preview=history" /> : <Link to="/workoutshistory" />
               }
             >
               Workout History

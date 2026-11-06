@@ -21,8 +21,8 @@ RepForge is a fitness app for creating routines, logging workouts, and tracking 
 - Authenticated exercise creation with Gemini validation, name correction, alias-aware duplicate checks, and library refresh after saving.
 - Routine API for creating, listing, viewing, editing, and deleting owned routines, with exercise-reference checks and a 10-routine limit.
 - Completed-workout API storing exercise-name snapshots and actual weights and reps, with history retrieval and dashboard profile/workout data.
-- Signed-in dashboard and My Routines designs, including workout actions, summary and analytics areas, and sample routine cards.
-- Manual and AI routine dialogs and a shared active-workout page design. Basic dialog and page navigation is connected; routine/workout screens use sample data while their data handling and persistence remain to be implemented.
+- Saved-routine browsing, manual creation, and deletion with confirmation, including exercise search/filtering, exercise ordering, and planned set counts.
+- Signed-in dashboard, shared active-workout, and Workout History designs, plus an AI routine-generation dialog. History includes read-only session details using sample data.
 
 A shared Axios client, development CORS, and production static serving connect the frontend and backend. Controllers include validation and error handling.
 
@@ -50,8 +50,8 @@ Routines contain ordered exercise references and planned set counts. Completed w
 
 ## Next steps
 
-- Design Workout History, with session summaries and read-only workout details.
-- Connect manual routine creation and management, then logging and finishing workouts on the shared active-workout page.
+- Add routine editing through the shared routine builder.
+- Connect routine/empty workout initialization, logging, completion, and real Workout History data.
 - Connect dashboard statistics, recent workouts, weekly activity, and exercise-progress charts.
 - Implement AI routine generation and review through the shared routine builder.
 

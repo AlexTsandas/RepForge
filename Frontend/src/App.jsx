@@ -10,6 +10,7 @@ import Exercises from "./pages/exercises.jsx";
 import { Toaster } from "@/components/ui/toast.jsx";
 import Routines from "./pages/routines.jsx";
 import ActiveWorkout from "./pages/ActiveWorkout.jsx";
+import WorkoutHistory from "./pages/workoutHistory.jsx";
 
 function App() {
   const { isLoaded, isSignedIn, getToken } = useAuth();
@@ -62,6 +63,7 @@ function App() {
         />
         <Route path="/myroutines" element={<Routines />}/>
         <Route path="/activeworkout" element={<ActiveWorkout />} />
+        <Route path="/workoutshistory" element={<WorkoutHistory />} />
       </Routes>
       <Toaster />
     </div>

@@ -1,5 +1,14 @@
 import { Button } from "@/components/ui/button.jsx";
 import GenerateRoutine from "@/components/GenerateRoutine.jsx";
+import Loading from "@/components/Loading.jsx";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog.jsx";
 import {
   Card,
   CardHeader,
@@ -16,7 +25,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu.jsx";
-
+import { useAuth } from "@clerk/react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   AiMagicIcon,
@@ -27,57 +36,113 @@ import {
   PlayIcon,
   PlusSignIcon,
 } from "@hugeicons/core-free-icons";
-
+import { useEffect, useState } from "react";
+import api from "@/lib/axios";
 // Temporary design examples.
 // TODO: Replace these with the authenticated user's saved routines.
 // Exercise names will need to be matched from the exercise library,
 // because saved routines contain exercise references and set counts.
-const routinePreviews = [
-  {
-    id: "preview-push",
-    name: "Push Day",
-    exerciseCount: 3,
-    totalSets: 10,
-    exercises: [
-      { name: "Barbell Bench Press", sets: 4 },
-      { name: "Incline Dumbbell Bench Press", sets: 3 },
-      { name: "Lateral Raise", sets: 3 },
-    ],
-  },
-  {
-    id: "preview-pull",
-    name: "Pull Day",
-    exerciseCount: 3,
-    totalSets: 10,
-    exercises: [
-      { name: "Lat Pulldown", sets: 4 },
-      { name: "Seated Cable Row", sets: 3 },
-      { name: "Dumbbell Curl", sets: 3 },
-    ],
-  },
-  {
-    id: "preview-legs",
-    name: "Leg Day",
-    exerciseCount: 3,
-    totalSets: 10,
-    exercises: [
-      { name: "Barbell Squat", sets: 4 },
-      { name: "Romanian Deadlift", sets: 3 },
-      { name: "Leg Curl", sets: 3 },
-    ],
-  },
-];
+
 
 const Routines = () => {
-  /*
-    TODO:
-    - Wait for Clerk to load and require sign-in.
-    - Fetch GET /myroutines with the Clerk session token.
-    - Handle loading, request errors, and empty results.
-    - Read mode=create to show AddRoutine in the main content area.
-    - Reuse the builder with existing values when editing.
-  */
+  const [routineToDelete, setRoutineToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const { isLoaded, isSignedIn, getToken } = useAuth();
+  const [exercises, setExercises] = useState([]);
+  const [routine, setRoutine] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const handleRoutineCreated = (createdRoutine) => {
+    setRoutine((current) => [createdRoutine, ...current]);
+  };
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+    const fetchExercises = async () => {
+      try {
+        const response = await api.get("/exercises");
+        setExercises(response.data);
+      } catch (error) {
+        console.error(error.message);
+        setError("Could not load exercises. Please try again.");
+      }
+    };
+    const fetchRoutine = async () => {
+      try {
+        const token = await getToken();
+        const response = await api.get("/myroutines", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        setRoutine(response.data);
+      } catch (error) {
+        console.error(error.message);
+        setError("Could not load routine. Please try again.");
+      }
+    };
 
+    const fetchData = async () => {
+      await Promise.all([fetchExercises(), fetchRoutine()]);
+      setLoading(false);
+    };
+
+    fetchData();
+  }, [isLoaded, isSignedIn, getToken]);
+  /*
+   TODO:
+   - Wait for Clerk to load and require sign-in.
+   - Fetch GET /myroutines with the Clerk session token.
+   - Handle loading, request errors, and empty results.
+   - Read mode=create to show AddRoutine in the main content area.
+   - Reuse the builder with existing values when editing.
+ */
+  if (!isLoaded) {
+    return <Loading />;
+  }
+
+  if (!isSignedIn) {
+    return <p className="p-6">Please sign in to view your routines.</p>;
+  }
+
+  if (loading) {
+    return <Loading message="Loading your routines..." />;
+  }
+
+  if (error) {
+    return <p role="alert" className="p-6 text-red-600">{error}</p>;
+  }
+
+  const handleDeleteRoutine = async (routineId) => {
+    if (!routineId || deleting) return;
+
+    setDeleting(true);
+    setDeleteError("");
+
+    try {
+      const token = await getToken();
+
+      await api.delete(`/myroutines/${routineId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      setRoutine((current) =>
+        current.filter((item) => item._id !== routineId)
+      );
+
+      setRoutineToDelete(null);
+    } catch (error) {
+      console.error("Could not delete routine:", error);
+      setDeleteError(
+        error.response?.data?.error ||
+        "Could not delete the routine. Please try again."
+      );
+    } finally {
+      setDeleting(false);
+    }
+  };
   return (
     <main className="mx-auto max-w-6xl space-y-8 px-6 py-10 md:py-12">
       <section>
@@ -129,8 +194,8 @@ const Routines = () => {
           </CardContent>
 
           <CardFooter className="mt-auto flex-col items-start gap-3 px-6">
-            {/* TODO: Show AddRoutine in the page's main content area. */}
-            <AddRoutine />
+
+            <AddRoutine onRoutineCreated={handleRoutineCreated} />
 
             <p className="text-xs leading-relaxed text-muted-foreground">
               Start from scratch and make it yours.
@@ -173,16 +238,7 @@ const Routines = () => {
           </CardContent>
 
           <CardFooter className="relative mt-auto flex-col items-start gap-3 px-6">
-            {/*
-              TODO:
-              - Open the AI routine-generation form.
-              - Collect goals, experience, equipment, and training days.
-              - Request suggestions through a future backend endpoint.
-              - Handle generation loading and errors.
-              - Show an editable preview before saving.
-              - Save only after explicit confirmation.
-              - Apply the same 10-routine limit as manual creation.
-            */}
+            {/* TODO:- Complete the GenerateRoutine component to show a form for the user's*/}
             <GenerateRoutine />
 
             <p className="text-xs leading-relaxed text-zinc-400">
@@ -210,7 +266,7 @@ const Routines = () => {
 
           {/* TODO: Display the actual number of saved routines. */}
           <span className="rounded-full border bg-muted/30 px-4 py-2 text-xs font-medium text-muted-foreground">
-            {routinePreviews.length} / 10 routines
+            {routine.length} / 10 routines
           </span>
         </div>
 
@@ -219,11 +275,11 @@ const Routines = () => {
           Replace routinePreviews with real data later.
           Setting the sample array to [] previews the empty layout below.
         */}
-        {routinePreviews.length > 0 ? (
+        {routine.length > 0 ? (
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {routinePreviews.map((routine) => (
+            {routine.map((routine) => (
               <Card
-                key={routine.id}
+                key={routine._id}
                 className="flex min-w-0 flex-col rounded-2xl py-5 shadow-sm"
               >
                 <CardHeader className="gap-4 px-5">
@@ -266,7 +322,13 @@ const Routines = () => {
                           Send authenticated DELETE /myroutines/:id,
                           then refresh the list after success.
                         */}
-                        <DropdownMenuItem className="cursor-pointer gap-2 text-destructive">
+                        <DropdownMenuItem
+                          className="cursor-pointer gap-2 text-destructive"
+                          onClick={() => {
+                            setDeleteError("");
+                            setRoutineToDelete(routine);
+                          }}
+                        >
                           <HugeiconsIcon
                             icon={Delete02Icon}
                             size={17}
@@ -285,11 +347,11 @@ const Routines = () => {
 
                     {/* TODO: Derive these counts from the saved exercises. */}
                     <CardDescription className="text-sm">
-                      {routine.exerciseCount} exercises
+                      {routine.exercises.length} exercises
                       <span aria-hidden="true" className="mx-2">
                         ·
                       </span>
-                      {routine.totalSets} planned sets
+                      {routine.exercises.reduce((total, exercise) => total + exercise.sets, 0)} planned sets
                     </CardDescription>
                   </div>
                 </CardHeader>
@@ -304,7 +366,7 @@ const Routines = () => {
                   <ol className="space-y-3">
                     {routine.exercises.map((exercise, index) => (
                       <li
-                        key={exercise.name}
+                        key={exercise._id}
                         className="flex items-center gap-3"
                       >
                         <span
@@ -315,7 +377,8 @@ const Routines = () => {
                         </span>
 
                         <span className="min-w-0 flex-1 text-sm leading-6">
-                          {exercise.name}
+                          {exercises.find((item) => item._id === exercise.exerciseId)?.name
+                            ?? "Unavailable exercise"}
                         </span>
 
                         <span className="shrink-0 text-xs text-muted-foreground">
@@ -368,22 +431,64 @@ const Routines = () => {
                 planned sets ready for your next session.
               </p>
 
-              {/* TODO: Show AddRoutine in the page's main content area. */}
-              <Button
-                type="button"
-                className="mt-6 h-11 w-full cursor-pointer gap-2 rounded-lg bg-orange-600 px-5 text-sm text-white hover:bg-orange-700 sm:w-auto"
-              >
-                <HugeiconsIcon
-                  icon={PlusSignIcon}
-                  size={18}
-                  aria-hidden="true"
-                />
-                Create your first routine
-              </Button>
+              <div className="mt-6 w-full sm:w-auto">
+                <AddRoutine onRoutineCreated={handleRoutineCreated} />
+              </div>
             </CardContent>
           </Card>
         )}
       </section>
+      <Dialog
+        open={Boolean(routineToDelete)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && !deleting) {
+            setRoutineToDelete(null);
+          }
+        }}
+      >
+        <DialogContent
+          showCloseButton={!deleting}
+          className="p-6 sm:max-w-md"
+        >
+          <DialogHeader className="gap-3">
+            <DialogTitle className="text-xl font-semibold">
+              Delete routine?
+            </DialogTitle>
+
+            <DialogDescription className="text-sm leading-6">
+              “{routineToDelete?.name}” will be removed from your saved routines.
+            </DialogDescription>
+          </DialogHeader>
+
+          {deleteError && (
+            <p role="alert" className="text-sm text-destructive">
+              {deleteError}
+            </p>
+          )}
+
+          <DialogFooter className="gap-3 pt-3">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={deleting}
+              onClick={() => setRoutineToDelete(null)}
+              className="h-10 cursor-pointer rounded-lg px-4 text-sm"
+            >
+              Cancel
+            </Button>
+
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleting || !routineToDelete}
+              onClick={() => handleDeleteRoutine(routineToDelete?._id)}
+              className="h-10 cursor-pointer rounded-lg px-4 text-sm"
+            >
+              {deleting ? "Deleting..." : "Confirm delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 };
