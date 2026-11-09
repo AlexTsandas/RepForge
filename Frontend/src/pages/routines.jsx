@@ -45,6 +45,7 @@ import api from "@/lib/axios";
 
 
 const Routines = () => {
+  const [routineToEdit, setRoutineToEdit] = useState(null);
   const [routineToDelete, setRoutineToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -55,6 +56,13 @@ const Routines = () => {
   const [error, setError] = useState("");
   const handleRoutineCreated = (createdRoutine) => {
     setRoutine((current) => [createdRoutine, ...current]);
+  };
+  const handleRoutineUpdated = (updatedRoutine) => {
+    setRoutine((current) =>
+      current.map((item) =>
+        item._id === updatedRoutine._id ? updatedRoutine : item
+      )
+    );
   };
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return;
@@ -89,14 +97,7 @@ const Routines = () => {
 
     fetchData();
   }, [isLoaded, isSignedIn, getToken]);
-  /*
-   TODO:
-   - Wait for Clerk to load and require sign-in.
-   - Fetch GET /myroutines with the Clerk session token.
-   - Handle loading, request errors, and empty results.
-   - Read mode=create to show AddRoutine in the main content area.
-   - Reuse the builder with existing values when editing.
- */
+
   if (!isLoaded) {
     return <Loading />;
   }
@@ -195,7 +196,14 @@ const Routines = () => {
 
           <CardFooter className="mt-auto flex-col items-start gap-3 px-6">
 
-            <AddRoutine onRoutineCreated={handleRoutineCreated} />
+            <AddRoutine
+              key={routineToEdit?._id ?? "create"}
+              routineToEdit={routineToEdit}
+              exerciseCatalog={exercises}
+              onRoutineCreated={handleRoutineCreated}
+              onRoutineUpdated={handleRoutineUpdated}
+              onEditClose={() => setRoutineToEdit(null)}
+            />
 
             <p className="text-xs leading-relaxed text-muted-foreground">
               Start from scratch and make it yours.
@@ -306,7 +314,10 @@ const Routines = () => {
 
                       <DropdownMenuContent align="end" className="w-44">
                         {/* TODO: Open AddRoutine with this routine's data. */}
-                        <DropdownMenuItem className="cursor-pointer gap-2">
+                        <DropdownMenuItem
+                          className="cursor-pointer gap-2"
+                          onClick={() => setRoutineToEdit(routine)}
+                        >
                           <HugeiconsIcon
                             icon={Edit02Icon}
                             size={17}

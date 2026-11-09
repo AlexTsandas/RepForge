@@ -115,11 +115,15 @@ const RoutineFilter = ({ id, label, options, value, onValueChange, disabled = fa
   );
 };
 
-const AddRoutine = ({ onRoutineCreated }) => {  /*
-    TODO: Reuse this builder for manual creation, editing a saved routine,
-    and reviewing a generated routine by accepting initial draft values.
-  */
-  const [open, setOpen] = useState(false);
+const AddRoutine = ({
+  onRoutineCreated,
+  routineToEdit,
+  exerciseCatalog = [],
+  onRoutineUpdated,
+  onEditClose,
+}) => {
+  const isEditing = Boolean(routineToEdit?._id);
+  const [open, setOpen] = useState(isEditing);
   const { isSignedIn, getToken } = useAuth();
   const [exercises, setExercises] = useState([]);
   const [error, setError] = useState("");
@@ -147,9 +151,23 @@ const AddRoutine = ({ onRoutineCreated }) => {  /*
 
 
 
-  const [routineName, setRoutineName] = useState("");
-  const [selectedExercises, setSelectedExercises] = useState([]);
-  const [draggedExerciseId, setDraggedExerciseId] = useState(null);
+  const [routineName, setRoutineName] = useState(
+    routineToEdit?.name ?? ""
+  );
+  const [selectedExercises, setSelectedExercises] = useState(() =>
+    (routineToEdit?.exercises ?? []).map((savedExercise) => {
+      const exercise = exerciseCatalog.find(
+        (item) => item._id === savedExercise.exerciseId
+      );
+
+      return {
+        ...exercise,
+        _id: savedExercise.exerciseId,
+        name: exercise?.name ?? "Unavailable exercise",
+        sets: savedExercise.sets,
+      };
+    })
+  ); const [draggedExerciseId, setDraggedExerciseId] = useState(null);
   const [exerciseDropTarget, setExerciseDropTarget] = useState(null);
   const navigate = useNavigate();
 
@@ -157,6 +175,7 @@ const AddRoutine = ({ onRoutineCreated }) => {  /*
     setOpen(nextOpen);
 
     if (!nextOpen) {
+      onEditClose?.();
       navigate("/myroutines");
     }
   };
@@ -348,13 +367,25 @@ const AddRoutine = ({ onRoutineCreated }) => {  /*
     try {
       const token = await getToken();
 
-      const response = await api.post("/myroutines", payload, {
+      const requestOptions = {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      });
+      };
 
-      onRoutineCreated?.(response.data);
+      const response = isEditing
+        ? await api.patch(
+          `/myroutines/${routineToEdit._id}`,
+          payload,
+          requestOptions
+        )
+        : await api.post("/myroutines", payload, requestOptions);
+
+      if (isEditing) {
+        onRoutineUpdated?.(response.data);
+      } else {
+        onRoutineCreated?.(response.data);
+      }
 
       setRoutineName("");
       setSelectedExercises([]);
@@ -400,7 +431,7 @@ const AddRoutine = ({ onRoutineCreated }) => {  /*
           id="routine-builder-heading"
           className="text-3xl font-bold tracking-tight sm:text-4xl"
         >
-          Create a routine
+          {isEditing ? "Edit routine" : "Create a routine"}
         </DialogTitle>
 
         <DialogDescription className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
@@ -541,14 +572,8 @@ const AddRoutine = ({ onRoutineCreated }) => {  /*
 
             <div className="max-h-[580px] overflow-y-auto overscroll-contain pr-1">
               <div className="grid grid-cols-2 gap-3">
-                {filteredExercises.map((exercise) => (                  /*
-                    TODO: Clicking a card adds that exercise to local
-                    draft state and reveals its planned-set input.
-                    Keep selection indicators synchronized with the draft.
-                    Enforce a maximum of 15 selected exercises.
-                    At the limit, prevent further additions and explain why.
-                    Selection does not save anything to MongoDB yet.
-                  */
+                {filteredExercises.map((exercise) => (
+
                   <button
                     key={exercise._id}
                     type="button"
@@ -846,26 +871,17 @@ const AddRoutine = ({ onRoutineCreated }) => {  /*
               Cancel
             </Button>
 
-            {/*
-              TODO:
-              - Enable saving only with a nonblank name, 1–15 exercises,
-                and a positive integer set count for every exercise.
-              - Send an authenticated POST /myroutines containing:
-                { name, exercises: [{ exerciseId, sets }] }.
-              - Enforce the 15-exercise maximum in the backend as well.
-              - Keep the existing 10-saved-routine limit.
-              - Handle pending, success, and error states.
-              - Keep the draft available if saving fails.
-              - After success, return to and refresh the saved-routines list.
-              - When editing, use PATCH /myroutines/:id instead.
-            */}
             <Button
               type="button"
               onClick={handleSaveRoutine}
               disabled={saving}
               className="h-11 flex-1 cursor-pointer rounded-lg bg-orange-600 px-5 text-sm text-white hover:bg-orange-700 md:flex-none"
             >
-              {saving ? "Saving..." : "Save routine"}
+              {saving
+                ? "Saving..."
+                : isEditing
+                  ? "Save changes"
+                  : "Save routine"}
             </Button>
           </div>
         </CardContent>
