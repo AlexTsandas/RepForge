@@ -1,6 +1,20 @@
 import { Button } from "@/components/ui/button.jsx";
 import { Input } from "@/components/ui/input.jsx";
-
+import { useState } from "react";
+import WorkoutExercisePicker from "@/components/WorkoutExercisePicker.jsx";
+import { useLocation, useNavigate } from "react-router";
+import { useAuth } from "@clerk/react";
+import api from "@/lib/axios";
+import Loading from "@/components/Loading.jsx";
+import { toast } from "@/components/ui/toast.jsx";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog.jsx";
 import {
   Card,
   CardHeader,
@@ -31,79 +45,306 @@ import {
   PlusSignIcon,
 } from "@hugeicons/core-free-icons";
 
-// TODO: Replace this sample with the current workout draft.
-// From a routine: copy its name, exercise order, and planned set counts.
-// Create blank weight/reps rows from those planned counts.
-// From an empty workout: start with name "", sourceRoutineName null,
-// and exercises [].
-const workoutPreview = {
-  name: "Push Day",
-  sourceRoutineName: "Push Day",
-  exercises: [
-    {
-      id: "preview-bench",
-      name: "Barbell Bench Press",
-      sets: [
-        { id: "bench-set-1" },
-        { id: "bench-set-2" },
-        { id: "bench-set-3" },
-        { id: "bench-set-4" },
-      ],
-    },
-    {
-      id: "preview-incline",
-      name: "Incline Dumbbell Bench Press",
-      sets: [
-        { id: "incline-set-1" },
-        { id: "incline-set-2" },
-        { id: "incline-set-3" },
-      ],
-    },
-    {
-      id: "preview-lateral",
-      name: "Lateral Raise",
-      sets: [
-        { id: "lateral-set-1" },
-        { id: "lateral-set-2" },
-        { id: "lateral-set-3" },
-      ],
-    },
-  ],
-};
+
 
 const ActiveWorkout = () => {
-  const totalSets = workoutPreview.exercises.reduce(
+  const { state } = useLocation();
+  const navigate = useNavigate();
+    const { isLoaded, isSignedIn, getToken } = useAuth();
+    const [saving, setSaving] = useState(false);
+    const [cancelOpen, setCancelOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [replacingExerciseId, setReplacingExerciseId] = useState(null);
+  const [workout, setWorkout] = useState(() => {
+    const routine = state?.routine;
+    const catalog = state?.exerciseCatalog ?? [];
+  
+    return {
+      name: routine?.name ?? "",
+      routineId: routine?._id,
+      sourceRoutineName: routine?.name ?? null,
+      exercises: (routine?.exercises ?? []).map((savedExercise) => {
+        const exercise = catalog.find(
+          (item) => item._id === savedExercise.exerciseId
+        );
+
+        return {
+          id: savedExercise.exerciseId,
+          exerciseId: savedExercise.exerciseId,
+          name: exercise?.name ?? "Unavailable exercise",
+          imageUrl:
+            exercise?.imageUrl ??
+            "/images/Athletic Silhouette with Barbell.png",
+          sets: Array.from({ length: savedExercise.sets }, () => ({
+            id: crypto.randomUUID(),
+            weight: "",
+            reps: "",
+          })),
+        };
+      }),
+    };
+  });
+  const totalSets = workout.exercises.reduce(
     (total, exercise) => total + exercise.sets.length,
     0
   );
 
-  /*
-    TODO:
-    - Require sign-in before loading private workout data.
-    - Keep the active session in React state.
-    - When started from a routine, load the owned routine and resolve
-      its exercise references through the exercise library.
-    - Keep the source routineId when applicable.
-    - Session edits must not update the reusable routine.
-  */
+  const handleSetChange = (exerciseId, setId, field, value) => {
+    setWorkout((current) => ({
+      ...current,
+      exercises: current.exercises.map((exercise) =>
+        exercise.id === exerciseId
+          ? {
+            ...exercise,
+            sets: exercise.sets.map((set) =>
+              set.id === setId
+                ? { ...set, [field]: value }
+                : set
+            ),
+          }
+          : exercise
+      ),
+    }));
+  };
 
+  const handleAddSet = (exerciseId) => {
+    const newSet = {
+      id: crypto.randomUUID(),
+      weight: "",
+      reps: "",
+    };
+
+    setWorkout((current) => ({
+      ...current,
+      exercises: current.exercises.map((exercise) =>
+        exercise.id === exerciseId
+          ? { ...exercise, sets: [...exercise.sets, newSet] }
+          : exercise
+      ),
+    }));
+  };
+
+  const handleRemoveSet = (exerciseId, setId) => {
+    setWorkout((current) => ({
+      ...current,
+      exercises: current.exercises.map((exercise) =>
+        exercise.id === exerciseId && exercise.sets.length > 1
+          ? {
+            ...exercise,
+            sets: exercise.sets.filter((set) => set.id !== setId),
+          }
+          : exercise
+      ),
+    }));
+  };
+
+  const openExercisePicker = (exerciseId = null) => {
+    setReplacingExerciseId(exerciseId);
+    setPickerOpen(true);
+  };
+
+  const handleSelectExercise = (selectedExercise) => {
+    const previousExercise = workout.exercises.find(
+      (exercise) => exercise.id === replacingExerciseId
+    );
+
+    const newExercise = {
+      id: selectedExercise._id,
+      exerciseId: selectedExercise._id,
+      name: selectedExercise.name,
+      imageUrl:
+        selectedExercise.imageUrl ??
+        "/images/Athletic Silhouette with Barbell.png",
+      sets: Array.from(
+        { length: previousExercise?.sets.length ?? 1 },
+        () => ({
+          id: crypto.randomUUID(),
+          weight: "",
+          reps: "",
+        })
+      ),
+    };
+
+    setWorkout((current) => {
+      if (
+        current.exercises.some(
+          (exercise) => exercise.exerciseId === selectedExercise._id
+        )
+      ) {
+        return current;
+      }
+
+      return {
+        ...current,
+        exercises: replacingExerciseId
+          ? current.exercises.map((exercise) =>
+            exercise.id === replacingExerciseId ? newExercise : exercise
+          )
+          : [...current.exercises, newExercise],
+      };
+    });
+
+    setPickerOpen(false);
+    setReplacingExerciseId(null);
+  };
+
+  const handleRemoveExercise = (exerciseId) => {
+    setWorkout((current) => ({
+      ...current,
+      exercises: current.exercises.filter(
+        (exercise) => exercise.id !== exerciseId
+      ),
+    }));
+  };
+
+  const handleMoveExercise = (exerciseId, direction) => {
+    setWorkout((current) => {
+      const fromIndex = current.exercises.findIndex(
+        (exercise) => exercise.id === exerciseId
+      );
+      const toIndex = fromIndex + direction;
+
+      if (
+        fromIndex === -1 ||
+        toIndex < 0 ||
+        toIndex >= current.exercises.length
+      ) {
+        return current;
+      }
+
+      const reordered = [...current.exercises];
+      const [exercise] = reordered.splice(fromIndex, 1);
+      reordered.splice(toIndex, 0, exercise);
+
+      return { ...current, exercises: reordered };
+    });
+  };
+
+  const handleFinishWorkout = async () => {
+    if (saving) return;
+
+    if (!workout.name.trim() || workout.exercises.length === 0) {
+      toast.add({
+        type: "error",
+        title: "Workout incomplete",
+        description: "Enter a workout name and add at least one exercise.",
+      });
+      return;
+    }
+
+    const hasInvalidSets = workout.exercises.some(
+      (exercise) =>
+        exercise.sets.length === 0 ||
+        exercise.sets.some((set) => {
+          const weight = Number(set.weight);
+          const reps = Number(set.reps);
+
+          return (
+            set.weight === "" ||
+            set.reps === "" ||
+            !Number.isFinite(weight) ||
+            weight < 0 ||
+            !Number.isInteger(reps) ||
+            reps < 0
+          );
+        })
+    );
+
+    if (hasInvalidSets) {
+      toast.add({
+        type: "error",
+        title: "Check your sets",
+        description:
+          "Fill every weight and reps field, or remove unused sets. Use 0 for bodyweight with no added weight.",
+      });
+      return;
+    }
+
+    const payload = {
+      name: workout.name.trim(),
+      exercises: workout.exercises.map((exercise) => ({
+        exerciseId: exercise.exerciseId,
+        name: exercise.name,
+        sets: exercise.sets.map((set) => ({
+          weight: Number(set.weight),
+          reps: Number(set.reps),
+        })),
+      })),
+    };
+
+    if (workout.routineId) {
+      payload.routineId = workout.routineId;
+    }
+
+    setSaving(true);
+
+    const toastId = toast.add({
+      type: "loading",
+      title: "Saving workout",
+      description: "Your completed session is being saved.",
+      timeout: 0,
+    });
+
+    try {
+      const token = await getToken();
+
+      await api.post("/activeworkout", payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      toast.update(toastId, {
+        type: "success",
+        title: "Workout completed",
+        description: `${payload.name} has been saved to your history.`,
+        timeout: 5000,
+      });
+
+      setWorkout({
+        name: "",
+        sourceRoutineName: null,
+        exercises: [],
+      });
+
+      navigate("/workoutshistory", { replace: true });
+    } catch (error) {
+      console.error("Could not save workout:", error);
+
+      toast.update(toastId, {
+        type: "error",
+        title: "Could not save workout",
+        description:
+          error.response?.data?.error ||
+          "Your results are still here. Please try again.",
+        timeout: 6000,
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+  if (!isLoaded) return <Loading />;
+
+  if (!isSignedIn) {
+    return <p className="p-6">Please sign in to start a workout.</p>;
+  }
   return (
-    <main className="mx-auto max-w-4xl space-y-7 px-4 pb-40 pt-8 sm:px-6 sm:pt-12">
+    <main className="mx-auto max-w-4xl space-y-7 px-4 pb-40 pt-8 sm:px-6 sm:pt-12" inert={saving}
+      aria-busy={saving}>
       <section>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <p className="text-xs font-semibold tracking-[0.2em] text-orange-600">
             YOUR TRAINING SESSION
           </p>
 
-          {/* TODO: Display the actual session source. */}
           <span className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-2 text-xs font-medium text-orange-700">
             <HugeiconsIcon
               icon={Dumbbell01Icon}
               size={16}
               aria-hidden="true"
             />
-            {workoutPreview.sourceRoutineName
-              ? `From ${workoutPreview.sourceRoutineName}`
+            {workout.sourceRoutineName
+              ? `From ${workout.sourceRoutineName}`
               : "Empty workout"}
           </span>
         </div>
@@ -126,12 +367,16 @@ const ActiveWorkout = () => {
             Workout name
           </label>
 
-          {/* TODO: Bind this input to the workout draft's name.
-              Allow changing a copied routine name for this session. */}
           <Input
             id="active-workout-name"
             type="text"
-            defaultValue={workoutPreview.name}
+            value={workout.name}
+            onChange={(event) =>
+              setWorkout((current) => ({
+                ...current,
+                name: event.target.value,
+              }))
+            }
             placeholder="Give this workout a name"
             aria-describedby="active-workout-name-help"
             className="h-12 rounded-lg bg-background px-3 text-base font-medium md:text-base"
@@ -157,13 +402,13 @@ const ActiveWorkout = () => {
 
           {/* TODO: Derive this count from the actual session state. */}
           <span className="text-sm text-muted-foreground">
-            {workoutPreview.exercises.length} exercises
+            {workout.exercises.length} exercises
           </span>
         </div>
 
-        {workoutPreview.exercises.length > 0 ? (
+        {workout.exercises.length > 0 ? (
           <>
-            {workoutPreview.exercises.map((exercise, exerciseIndex) => (
+            {workout.exercises.map((exercise, exerciseIndex) => (
               <Card
                 key={exercise.id}
                 className="min-w-0 gap-3 rounded-2xl py-4 shadow-sm"
@@ -172,7 +417,7 @@ const ActiveWorkout = () => {
                   <div className="flex items-start gap-3 sm:gap-4">
                     {/* TODO: Use the exercise library's actual imageUrl. */}
                     <img
-                      src="/images/Athletic Silhouette with Barbell.png"
+                      src={exercise.imageUrl}
                       alt=""
                       loading="lazy"
                       className="size-24 shrink-0 rounded-xl border bg-white object-contain p-1 sm:size-28"
@@ -205,66 +450,40 @@ const ActiveWorkout = () => {
                       </DropdownMenuTrigger>
 
                       <DropdownMenuContent align="end" className="w-48">
-                        {/*
-                          TODO: Open the exercise picker in replacement mode.
-                          Use search, equipment, and body-part filters.
-                          Decide how to handle already-entered results
-                          before replacing an exercise.
-                        */}
-                        <DropdownMenuItem className="cursor-pointer gap-2">
-                          <HugeiconsIcon
-                            icon={ArrowReloadHorizontalIcon}
-                            size={17}
-                            aria-hidden="true"
-                          />
+                        <DropdownMenuItem
+                          onClick={() => openExercisePicker(exercise.id)}
+                          className="cursor-pointer gap-2"
+                        >
+                          <HugeiconsIcon icon={ArrowReloadHorizontalIcon} size={17} aria-hidden="true" />
                           Replace exercise
                         </DropdownMenuItem>
 
-                        {/* TODO: Move the whole exercise entry, including
-                            its entered sets, one position up. */}
                         <DropdownMenuItem
+                          onClick={() => handleMoveExercise(exercise.id, -1)}
                           disabled={exerciseIndex === 0}
                           className="cursor-pointer gap-2"
                         >
-                          <HugeiconsIcon
-                            icon={ArrowUp01Icon}
-                            size={17}
-                            aria-hidden="true"
-                          />
+                          <HugeiconsIcon icon={ArrowUp01Icon} size={17} aria-hidden="true" />
                           Move up
                         </DropdownMenuItem>
 
-                        {/* TODO: Move the whole exercise entry, including
-                            its entered sets, one position down. */}
                         <DropdownMenuItem
-                          disabled={
-                            exerciseIndex ===
-                            workoutPreview.exercises.length - 1
-                          }
+                          onClick={() => handleMoveExercise(exercise.id, 1)}
+                          disabled={exerciseIndex === workout.exercises.length - 1}
                           className="cursor-pointer gap-2"
                         >
-                          <HugeiconsIcon
-                            icon={ArrowDown01Icon}
-                            size={17}
-                            aria-hidden="true"
-                          />
+                          <HugeiconsIcon icon={ArrowDown01Icon} size={17} aria-hidden="true" />
                           Move down
                         </DropdownMenuItem>
 
                         <DropdownMenuSeparator />
 
-                        {/* TODO: Remove this exercise from the session.
-                            Account for any entered results before discarding.
-                            Keep the source routine and catalog unchanged. */}
                         <DropdownMenuItem
+                          onClick={() => handleRemoveExercise(exercise.id)}
                           variant="destructive"
                           className="cursor-pointer gap-2"
                         >
-                          <HugeiconsIcon
-                            icon={Delete02Icon}
-                            size={17}
-                            aria-hidden="true"
-                          />
+                          <HugeiconsIcon icon={Delete02Icon} size={17} aria-hidden="true" />
                           Remove exercise
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -337,13 +556,30 @@ const ActiveWorkout = () => {
                               placeholder="—"
                               aria-label={`Weight for ${exercise.name}, set ${setIndex + 1}`}
                               className="h-10 rounded-lg bg-background px-2 text-center text-sm md:text-sm"
+                              value={set.weight}
+                              onChange={(event) =>
+                                handleSetChange(
+                                  exercise.id,
+                                  set.id,
+                                  "weight",
+                                  event.target.value
+                                )
+                              }
                             />
                           </td>
 
                           <td className="px-2 py-3">
-                            {/* TODO: Bind to this set's actual reps.
-                                Validate a nonnegative whole number. */}
+
                             <Input
+                              value={set.reps}
+                              onChange={(event) =>
+                                handleSetChange(
+                                  exercise.id,
+                                  set.id,
+                                  "reps",
+                                  event.target.value
+                                )
+                              }
                               type="number"
                               min={0}
                               step={1}
@@ -355,9 +591,10 @@ const ActiveWorkout = () => {
                           </td>
 
                           <td className="py-3 text-right">
-                            {/* TODO: Remove this set from the session
-                                and update the displayed set numbers. */}
+
                             <Button
+                              onClick={() => handleRemoveSet(exercise.id, set.id)}
+                              disabled={exercise.sets.length <= 1}
                               type="button"
                               variant="ghost"
                               size="icon"
@@ -384,6 +621,7 @@ const ActiveWorkout = () => {
                     type="button"
                     variant="outline"
                     className="h-10 w-full cursor-pointer gap-2 rounded-lg text-sm"
+                    onClick={() => handleAddSet(exercise.id)}
                   >
                     <HugeiconsIcon
                       icon={PlusSignIcon}
@@ -399,6 +637,7 @@ const ActiveWorkout = () => {
             {/* TODO: Open the shared exercise picker and add the chosen
                 exercise to this session with blank set inputs. */}
             <Button
+              onClick={() => openExercisePicker()}
               type="button"
               variant="outline"
               className="h-14 w-full cursor-pointer gap-2 rounded-xl border-dashed text-sm text-orange-700 hover:border-orange-300 hover:bg-orange-50"
@@ -434,6 +673,7 @@ const ActiveWorkout = () => {
               {/* TODO: Open the exercise picker with name search,
                   equipment filters, and body-part filters. */}
               <Button
+                onClick={() => openExercisePicker()}
                 type="button"
                 className="mt-6 h-11 w-full cursor-pointer gap-2 rounded-lg bg-orange-600 px-5 text-sm text-white hover:bg-orange-700 sm:w-auto"
               >
@@ -452,9 +692,8 @@ const ActiveWorkout = () => {
       <footer className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 backdrop-blur">
         <div className="mx-auto flex max-w-4xl flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
-            {/* TODO: Derive these totals from the actual workout draft. */}
             <p className="text-sm font-semibold">
-              {workoutPreview.exercises.length} exercises
+              {workout.exercises.length} exercises
               <span aria-hidden="true" className="mx-2 text-muted-foreground">
                 ·
               </span>
@@ -471,6 +710,8 @@ const ActiveWorkout = () => {
                 session draft, and return to the appropriate entry screen.
                 Cancelling must not save a completed workout. */}
             <Button
+              onClick={() => setCancelOpen(true)}
+              disabled={saving}
               type="button"
               variant="outline"
               className="h-11 flex-1 cursor-pointer gap-2 rounded-lg px-4 text-sm sm:flex-none"
@@ -483,23 +724,9 @@ const ActiveWorkout = () => {
               Cancel workout
             </Button>
 
-            {/*
-              TODO:
-              - Require a name, at least one exercise, and at least one
-                valid set per exercise before saving.
-              - Validate actual weight and reps against the workout schema.
-              - Decide how unfinished set rows should be handled.
-              - Send authenticated POST /activeworkout only on Finish.
-              - Include the workout name, real exercise IDs, exercise-name
-                snapshots, and actual sets: [{ weight, reps }].
-              - Include the source routineId only for routine-based sessions.
-              - Omit temporary UI-only row IDs from the request.
-              - Prevent repeat submissions while saving.
-              - Preserve the draft if saving fails.
-              - Clear the draft only after the server confirms success.
-              - Navigate to Workout History after successful completion.
-            */}
             <Button
+              onClick={handleFinishWorkout}
+              disabled={saving}
               type="button"
               className="h-11 flex-1 cursor-pointer gap-2 rounded-lg bg-orange-600 px-4 text-sm text-white hover:bg-orange-700 sm:flex-none"
             >
@@ -508,11 +735,56 @@ const ActiveWorkout = () => {
                 size={18}
                 aria-hidden="true"
               />
-              Finish workout
+              {saving ? "Saving workout..." : "Finish workout"}
             </Button>
           </div>
         </div>
       </footer>
+      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <DialogContent className="p-6 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Discard this workout?</DialogTitle>
+            <DialogDescription>
+              Your entered results will be discarded. Nothing will be saved
+              to your workout history.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCancelOpen(false)}
+            >
+              Keep training
+            </Button>
+
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                setCancelOpen(false);
+                navigate(workout.routineId ? "/myroutines" : "/", {
+                  replace: true,
+                });
+              }}
+            >
+              Discard workout
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {pickerOpen && (
+        <WorkoutExercisePicker
+          selectedIds={workout.exercises.map((exercise) => exercise.exerciseId)}
+          replacing={Boolean(replacingExerciseId)}
+          onSelect={handleSelectExercise}
+          onClose={() => {
+            setPickerOpen(false);
+            setReplacingExerciseId(null);
+          }}
+        />
+      )}
     </main>
   );
 };

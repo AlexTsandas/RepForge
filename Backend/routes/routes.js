@@ -2,7 +2,8 @@ import express from "express";
 import {
   createExercise, getAllExercises, getInfoDashboard, getMyRoutines,
   createRoutines, getRoutineById, updateRoutine,
-  deleteRoutine, getWorkoutHistory, createActiveWorkout,syncUsersData
+  deleteRoutine, getWorkoutHistory, createActiveWorkout,syncUsersData,
+  generateRoutine
 } from "../controllers/controller.js";
 
 const router = express.Router();
@@ -28,5 +29,8 @@ router.get("/workoutshistory", getWorkoutHistory);
 router.post("/activeworkout", createActiveWorkout);
 
 router.post("/sync-users", syncUsersData);
+
+router.post("/generate-routine", generateRoutine);
+
 
 export default router;

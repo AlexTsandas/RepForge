@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button.jsx";
 import GenerateRoutine from "@/components/GenerateRoutine.jsx";
 import Loading from "@/components/Loading.jsx";
+import { Link } from "react-router";
 import {
   Dialog,
   DialogContent,
@@ -34,14 +35,9 @@ import {
   Edit02Icon,
   MoreHorizontalIcon,
   PlayIcon,
-  PlusSignIcon,
 } from "@hugeicons/core-free-icons";
 import { useEffect, useState } from "react";
 import api from "@/lib/axios";
-// Temporary design examples.
-// TODO: Replace these with the authenticated user's saved routines.
-// Exercise names will need to be matched from the exercise library,
-// because saved routines contain exercise references and set counts.
 
 
 const Routines = () => {
@@ -246,8 +242,8 @@ const Routines = () => {
           </CardContent>
 
           <CardFooter className="relative mt-auto flex-col items-start gap-3 px-6">
-            {/* TODO:- Complete the GenerateRoutine component to show a form for the user's*/}
-            <GenerateRoutine />
+
+            <GenerateRoutine onRoutineCreated={handleRoutineCreated} />
 
             <p className="text-xs leading-relaxed text-zinc-400">
               Suggested by AI. Reviewed and chosen by you.
@@ -408,6 +404,16 @@ const Routines = () => {
                     Starting a session must not modify the saved routine.
                   */}
                   <Button
+                    nativeButton={false}
+                    render={
+                      <Link
+                        to="/activeworkout"
+                        state={{
+                          routine,
+                          exerciseCatalog: exercises,
+                        }}
+                      />
+                    }
                     type="button"
                     className="h-10 w-full cursor-pointer gap-2 rounded-lg bg-orange-600 px-4 text-sm text-white hover:bg-orange-700"
                   >

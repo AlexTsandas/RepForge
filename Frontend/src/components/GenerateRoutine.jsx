@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-
+import api from "@/lib/axios";
 import { Button } from "@/components/ui/button.jsx";
 import { Checkbox } from "@/components/ui/checkbox.jsx";
 import { Textarea } from "@/components/ui/textarea.jsx";
-
+import { useAuth } from "@clerk/react";
+import { toast } from "@/components/ui/toast.jsx";
 import {
   Dialog,
   DialogTrigger,
@@ -94,11 +95,17 @@ const GeneratorCombobox = ({
   );
 };
 
-const GenerateRoutine = () => {
+
+
+const GenerateRoutine = ({ onRoutineCreated }) => {
   const [open, setOpen] = useState(false);
   const [focus, setFocus] = useState(null);
   const navigate = useNavigate();
-
+  const { getToken } = useAuth();
+  const [generating, setGenerating] = useState(false);
+  const [volume, setVolume] = useState(null);
+  const [selectedEquipment, setSelectedEquipment] = useState([]);
+  const [description, setDescription] = useState("");
   const isCustom = focus === "Custom";
 
   const handleOpenChange = (nextOpen) => {
@@ -106,7 +113,73 @@ const GenerateRoutine = () => {
 
     if (!nextOpen) {
       setFocus(null);
+      setVolume(null);
+      setSelectedEquipment([]);
+      setDescription("");
       navigate("/myroutines");
+    }
+  };
+
+  const handleEquipmentChange = (value, checked) => {
+    setSelectedEquipment((current) => {
+      if (checked) {
+        return current.includes(value) ? current : [...current, value];
+      }
+
+      return current.filter((item) => item !== value);
+    });
+  };
+
+  const handleGenerateRoutine = async () => {
+    if (generating) return;
+
+    const payload = {
+      focus,
+      volume,
+      equipment: selectedEquipment,
+      description: description.trim(),
+    };
+
+    setGenerating(true);
+    handleOpenChange(false);
+
+    const toastId = toast.add({
+      type: "loading",
+      title: "Generating routine",
+      description: "Your AI Coach is building your routine. You can continue browsing.",
+      timeout: 0,
+    });
+
+    try {
+      const token = await getToken();
+
+      const response = await api.post("/generate-routine", payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      onRoutineCreated(response.data);
+
+      toast.update(toastId, {
+        type: "success",
+        title: "Routine created",
+        description: `${response.data.name} has been saved to your routines.`,
+        timeout: 5000,
+      });
+    } catch (error) {
+      console.error("Error generating routine:", error);
+
+      toast.update(toastId, {
+        type: "error",
+        title: "Could not generate routine",
+        description:
+          error.response?.data?.error ||
+          "The request could not be completed. Please try again.",
+        timeout: 6000,
+      });
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -119,6 +192,7 @@ const GenerateRoutine = () => {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
+        disabled={generating}
         render={
           <Button
             type="button"
@@ -131,7 +205,7 @@ const GenerateRoutine = () => {
           size={18}
           aria-hidden="true"
         />
-        Generate with AI Coach
+        {generating ? "Generating routine..." : "Generate with AI Coach"}
       </DialogTrigger>
 
       <DialogContent className="max-h-[90svh] w-[calc(100%-2rem)] max-w-2xl overflow-y-auto p-0 sm:max-w-2xl">
@@ -155,9 +229,7 @@ const GenerateRoutine = () => {
           </DialogTitle>
 
           <DialogDescription className="max-w-lg text-sm leading-7">
-            Tell us what you want to train and what you have available.
-            We will suggest a routine you can review and make your own.
-          </DialogDescription>
+            Generate and save a routine with up to 15 exercises. You can edit its name, exercise order, and planned sets afterward.          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 p-6 sm:p-8">
@@ -174,6 +246,8 @@ const GenerateRoutine = () => {
             <div className="space-y-2">
               {/* TODO: Store the selected volume in form state. */}
               <GeneratorCombobox
+                value={volume}
+                onValueChange={setVolume}
                 id="ai-workout-volume"
                 label="Training volume"
                 options={volumeOptions}
@@ -209,6 +283,10 @@ const GenerateRoutine = () => {
                   className="flex cursor-pointer items-center gap-3 rounded-xl border bg-background p-4 transition-colors hover:bg-muted/40"
                 >
                   <Checkbox
+                    checked={selectedEquipment.includes(equipment.value)}
+                    onCheckedChange={(checked) =>
+                      handleEquipmentChange(equipment.value, checked)
+                    }
                     name="equipment"
                     value={equipment.value}
                     className="size-4 shrink-0 data-checked:border-orange-600 data-checked:bg-orange-600 data-checked:text-white"
@@ -256,6 +334,8 @@ const GenerateRoutine = () => {
                 the generation request.
             */}
             <Textarea
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
               id="ai-workout-description"
               required={isCustom}
               aria-describedby="ai-workout-description-help"
@@ -330,6 +410,8 @@ const GenerateRoutine = () => {
                 and explicitly saves through the shared routine builder.
             */}
             <Button
+              disabled={generating}
+              onClick={handleGenerateRoutine}
               type="button"
               className="h-11 w-full cursor-pointer gap-2 rounded-lg bg-orange-600 px-5 text-sm text-white hover:bg-orange-700 sm:w-auto"
             >

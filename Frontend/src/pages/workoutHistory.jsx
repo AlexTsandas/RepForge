@@ -1,5 +1,8 @@
 import { Link } from "react-router";
-
+import { useEffect, useState } from "react";
+import { useAuth } from "@clerk/react";
+import api from "@/lib/axios";
+import Loading from "@/components/Loading.jsx";
 import { Button, buttonVariants } from "@/components/ui/button.jsx";
 import { Card, CardContent } from "@/components/ui/card.jsx";
 import { Input } from "@/components/ui/input.jsx";
@@ -25,98 +28,7 @@ import {
   Search01Icon,
 } from "@hugeicons/core-free-icons";
 
-// TODO: Replace this design example with GET /workoutshistory results.
-const workoutPreviews = [
-  {
-    _id: "preview-push-day",
-    name: "Push Day",
-    completedAt: "2026-11-05T18:30:00+02:00",
-    exercises: [
-      {
-        _id: "preview-bench",
-        name: "Barbell Bench Press",
-        sets: [
-          { weight: 70, reps: 10 },
-          { weight: 70, reps: 10 },
-          { weight: 70, reps: 9 },
-          { weight: 70, reps: 8 },
-        ],
-      },
-      {
-        _id: "preview-incline",
-        name: "Incline Dumbbell Bench Press",
-        sets: [
-          { weight: 24, reps: 12 },
-          { weight: 24, reps: 10 },
-          { weight: 24, reps: 10 },
-        ],
-      },
-      {
-        _id: "preview-lateral",
-        name: "Lateral Raise",
-        sets: [
-          { weight: 8, reps: 15 },
-          { weight: 8, reps: 15 },
-          { weight: 8, reps: 12 },
-        ],
-      },
-      {
-        _id: "preview-pullover",
-        name: "Pullover",
-        sets: [
-          { weight: 8, reps: 15 },
-          { weight: 8, reps: 15 },
-          { weight: 8, reps: 12 },
-        ],
-      },
-      {
-        _id: "preview-dips",
-        name: "Dips",
-        sets: [
-          { weight: 8, reps: 15 },
-          { weight: 8, reps: 15 },
-          { weight: 8, reps: 12 },
-        ],
-      },
-      {
-        _id: "preview-pushdown",
-        name: "Cable Tricep Pushdown",
-        sets: [
-          { weight: 8, reps: 15 },
-          { weight: 8, reps: 15 },
-          { weight: 8, reps: 12 },
-        ],
-      },
-      {
-        _id: "preview-rows",
-        name: "rows",
-        sets: [
-          { weight: 8, reps: 15 },
-          { weight: 8, reps: 15 },
-          { weight: 8, reps: 12 },
-        ],
-      },
-      {
-        _id: "preview-t bar roww",
-        name: "T-Bar Row",
-        sets: [
-          { weight: 8, reps: 15 },
-          { weight: 8, reps: 15 },
-          { weight: 8, reps: 12 },
-        ],
-      },
-      {
-        _id: "preview-bicep curl",
-        name: "Bicep Curl",
-        sets: [
-          { weight: 8, reps: 15 },
-          { weight: 8, reps: 15 },
-          { weight: 8, reps: 12 },
-        ],
-      },
-    ],
-  },
-];
+
 
 const dateFormatter = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
@@ -125,17 +37,72 @@ const dateFormatter = new Intl.DateTimeFormat("en-GB", {
 });
 
 const WorkoutHistory = () => {
-  /*
-    TODO:
-    - Wait for Clerk to load and require sign-in.
-    - Fetch GET /workoutshistory with the Clerk session token.
-    - Handle loading, request errors, and an empty history.
-    - Keep the API's newest-first workout order.
-    - Store the search input and filter by workout name.
-    - Show a separate no-results message when a search has no matches.
-    - Keep completed workout details read-only.
-  */
+  const { isLoaded, isSignedIn, getToken } = useAuth();
+  const [workouts, setWorkouts] = useState([]);
+  const [exerciseCatalog, setExerciseCatalog] = useState([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+
+    let active = true;
+
+    const fetchHistory = async () => {
+      setLoading(true);
+      setError("");
+
+      try {
+        const token = await getToken();
+
+        const [historyResponse, catalogResponse] = await Promise.all([
+          api.get("/workoutshistory", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }),
+          api.get("/exercises").catch(() => ({ data: [] })),
+        ]);
+
+        if (active) {
+          setWorkouts(historyResponse.data);
+          setExerciseCatalog(catalogResponse.data);
+        }
+      } catch (error) {
+        if (active) {
+          setError(
+            error.response?.data?.error ||
+            "Could not load workout history. Please try again."
+          );
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    fetchHistory();
+
+    return () => {
+      active = false;
+    };
+  }, [isLoaded, isSignedIn, getToken]);
+
+  const filteredWorkouts = workouts.filter((workout) =>
+    workout.name.toLowerCase().includes(search.trim().toLowerCase())
+  );
+
+  if (!isLoaded) return <Loading />;
+
+  if (!isSignedIn) {
+    return <p className="p-6">Please sign in to view your history.</p>;
+  }
+
+  if (loading) return <Loading message="Loading workout history..." />;
+
+  if (error) {
+    return <p role="alert" className="p-6 text-destructive">{error}</p>;
+  }
   return (
     <main className="mx-auto max-w-4xl space-y-8 px-4 py-8 sm:px-6 sm:py-12">
       <section>
@@ -155,7 +122,6 @@ const WorkoutHistory = () => {
             </p>
           </div>
 
-          {/* TODO: Initialize a fresh, empty workout when starting here. */}
           <Link
             to="/activeworkout"
             className={cn(
@@ -173,7 +139,7 @@ const WorkoutHistory = () => {
         </div>
       </section>
 
-      {workoutPreviews.length > 0 ? (
+      {workouts.length > 0 ? (
         <>
           <section aria-label="Search workout history">
             <label htmlFor="workout-history-search" className="sr-only">
@@ -190,6 +156,8 @@ const WorkoutHistory = () => {
 
               {/* TODO: Bind this input to the workout-name search state. */}
               <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
                 id="workout-history-search"
                 type="search"
                 placeholder="Search your workouts..."
@@ -212,12 +180,16 @@ const WorkoutHistory = () => {
 
               {/* TODO: Show the appropriate total when search is connected. */}
               <span className="text-sm text-muted-foreground">
-                {workoutPreviews.length}{" "}
-                {workoutPreviews.length === 1 ? "workout" : "workouts"}
+                {filteredWorkouts.length}{" "}
+                {filteredWorkouts.length === 1 ? "workout" : "workouts"}
               </span>
             </div>
-
-            {workoutPreviews.map((workout) => {
+            {filteredWorkouts.length === 0 && (
+              <p role="status" className="py-8 text-center text-muted-foreground">
+                No workouts match your search.
+              </p>
+            )}
+            {filteredWorkouts.map((workout) => {
               const totalSets = workout.exercises.reduce(
                 (total, exercise) => total + exercise.sets.length,
                 0
@@ -322,12 +294,13 @@ const WorkoutHistory = () => {
                           className="rounded-xl border p-4"
                         >
                           <div className="mb-4 flex items-center gap-4">
-                            {/* TODO: Resolve images through exerciseId and the
-                                exercise library. Keep the saved name snapshot
-                                and a fallback image if the catalog entry is
-                                unavailable. */}
+
                             <img
-                              src="/images/Athletic Silhouette with Barbell.png"
+                              src={
+                                exerciseCatalog.find(
+                                  (item) => item._id === exercise.exerciseId
+                                )?.imageUrl ?? "/images/Athletic Silhouette with Barbell.png"
+                              }
                               alt=""
                               loading="lazy"
                               className="size-20 shrink-0 rounded-xl border bg-white object-contain p-1 sm:size-24"
