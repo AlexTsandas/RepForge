@@ -268,7 +268,6 @@ const Routines = () => {
             </p>
           </div>
 
-          {/* TODO: Display the actual number of saved routines. */}
           <span className="rounded-full border bg-muted/30 px-4 py-2 text-xs font-medium text-muted-foreground">
             {routine.length} / 10 routines
           </span>
@@ -309,7 +308,6 @@ const Routines = () => {
                       </DropdownMenuTrigger>
 
                       <DropdownMenuContent align="end" className="w-44">
-                        {/* TODO: Open AddRoutine with this routine's data. */}
                         <DropdownMenuItem
                           className="cursor-pointer gap-2"
                           onClick={() => setRoutineToEdit(routine)}
@@ -324,11 +322,6 @@ const Routines = () => {
 
                         <DropdownMenuSeparator />
 
-                        {/*
-                          TODO: Ask for confirmation before deleting.
-                          Send authenticated DELETE /myroutines/:id,
-                          then refresh the list after success.
-                        */}
                         <DropdownMenuItem
                           className="cursor-pointer gap-2 text-destructive"
                           onClick={() => {
@@ -352,7 +345,6 @@ const Routines = () => {
                       <h3 className="break-words">{routine.name}</h3>
                     </CardTitle>
 
-                    {/* TODO: Derive these counts from the saved exercises. */}
                     <CardDescription className="text-sm">
                       {routine.exercises.length} exercises
                       <span aria-hidden="true" className="mx-2">
@@ -364,12 +356,7 @@ const Routines = () => {
                 </CardHeader>
 
                 <CardContent className="px-5">
-                  {/*
-                    TODO: Resolve exercise names from their exerciseIds.
-                    Keep the routine's saved exercise order.
-                    For long routines, show a short preview and a
-                    "View routine" action for the complete list.
-                  */}
+                  {/* TODO: For long routines, show a short preview and a View routine action. */}
                   <ol className="space-y-3">
                     {routine.exercises.map((exercise, index) => (
                       <li
@@ -397,12 +384,6 @@ const Routines = () => {
                 </CardContent>
 
                 <CardFooter className="mt-auto border-t px-5 pt-4">
-                  {/*
-                    TODO: Copy this routine's name, ordered exercises,
-                    and planned set counts into a new active workout.
-                    Open the shared active-workout page.
-                    Starting a session must not modify the saved routine.
-                  */}
                   <Button
                     nativeButton={false}
                     render={

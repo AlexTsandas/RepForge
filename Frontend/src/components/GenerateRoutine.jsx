@@ -183,11 +183,6 @@ const GenerateRoutine = ({ onRoutineCreated }) => {
     }
   };
 
-  /*
-    TODO: Add form state for volume, description, and selected equipment.
-    Keep the four stored equipment values:
-    barbell, dumbbell, machine, bodyweight.
-  */
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -244,7 +239,6 @@ const GenerateRoutine = ({ onRoutineCreated }) => {
             />
 
             <div className="space-y-2">
-              {/* TODO: Store the selected volume in form state. */}
               <GeneratorCombobox
                 value={volume}
                 onValueChange={setVolume}
@@ -269,13 +263,6 @@ const GenerateRoutine = ({ onRoutineCreated }) => {
               Select the equipment you can use for this workout.
             </p>
 
-            {/*
-              TODO:
-              - Store checked equipment values in an array.
-              - Require at least one equipment choice before generating.
-              - Restrict generated exercises to the selected equipment.
-              - Machines includes cable and Smith machine exercises.
-            */}
             <div className="grid grid-cols-2 gap-3">
               {equipmentOptions.map((equipment) => (
                 <label
@@ -324,15 +311,6 @@ const GenerateRoutine = ({ onRoutineCreated }) => {
               </span>
             </div>
 
-            {/*
-              TODO:
-              - Store the description in form state.
-              - For Custom focus, require a nonblank trimmed description
-                and use it to determine the workout's focus.
-              - For other focuses, treat it as optional preferences.
-              - Include preferred exercises and exercises to avoid in
-                the generation request.
-            */}
             <Textarea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
@@ -377,8 +355,6 @@ const GenerateRoutine = ({ onRoutineCreated }) => {
             </div>
           </div>
 
-          {/* TODO: Show generation errors here while preserving the
-              entered preferences so the user can retry. */}
 
           <DialogFooter className="gap-3 border-t pt-5">
             <Button
@@ -390,25 +366,6 @@ const GenerateRoutine = ({ onRoutineCreated }) => {
               Cancel
             </Button>
 
-            {/*
-              TODO:
-              - Validate focus, volume, and at least one equipment choice.
-              - Require a description when focus is Custom.
-              - Send these four inputs through an authenticated
-                POST /generate-routine request.
-              - Keep the AI guide and prompt in the backend.
-              - While pending, show a spinner and "Generating routine..."
-                and prevent repeat generation requests.
-              - Backend should return a suggested name, real exercise IDs,
-                and positive integer planned set counts.
-              - Enforce the 15-exercise maximum and equipment restrictions.
-              - Follow the requested focus, volume, and exclusions.
-              - Return the generated draft to routines.jsx and open
-                AddRoutine with the draft filled in.
-              - Close this dialog during that handoff.
-              - Save to MongoDB only after the user reviews the draft
-                and explicitly saves through the shared routine builder.
-            */}
             <Button
               disabled={generating}
               onClick={handleGenerateRoutine}

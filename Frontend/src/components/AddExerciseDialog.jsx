@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button.jsx";
 import { Input } from "@/components/ui/input.jsx";
 import { toast } from "@/components/ui/toast.jsx";
-import{ useAuth } from "@clerk/react";
+import { useAuth } from "@clerk/react";
 import api from "@/lib/axios";
 
 import {
@@ -171,14 +171,15 @@ const AddExerciseDialog = ({ onExerciseCreated }) => {
               ? "This exercise is already in the library."
               : status === 401
                 ? "Please sign in and try again."
-                : "The request could not be completed. Please try again.",
+                : error.response?.data?.error ||
+                "The request could not be completed. Please try again.",
         timeout: 6000,
       });
     }
   };
-    if (!isLoaded || !isSignedIn) return null;
+  if (!isLoaded || !isSignedIn) return null;
 
- 
+
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>

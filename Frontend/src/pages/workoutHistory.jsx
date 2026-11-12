@@ -154,7 +154,6 @@ const WorkoutHistory = () => {
                 className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
               />
 
-              {/* TODO: Bind this input to the workout-name search state. */}
               <Input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
@@ -178,7 +177,6 @@ const WorkoutHistory = () => {
                 Completed workouts
               </h2>
 
-              {/* TODO: Show the appropriate total when search is connected. */}
               <span className="text-sm text-muted-foreground">
                 {filteredWorkouts.length}{" "}
                 {filteredWorkouts.length === 1 ? "workout" : "workouts"}
@@ -422,7 +420,6 @@ const WorkoutHistory = () => {
               weight, and rep you recorded.
             </p>
 
-            {/* TODO: Initialize a fresh, empty workout before navigation. */}
             <Link
               to="/activeworkout"
               className={cn(

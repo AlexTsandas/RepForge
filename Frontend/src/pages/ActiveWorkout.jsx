@@ -400,7 +400,6 @@ const ActiveWorkout = () => {
             Your exercises
           </h2>
 
-          {/* TODO: Derive this count from the actual session state. */}
           <span className="text-sm text-muted-foreground">
             {workout.exercises.length} exercises
           </span>
@@ -415,7 +414,6 @@ const ActiveWorkout = () => {
               >
                 <CardHeader className="gap-4 px-4 sm:px-6">
                   <div className="flex items-start gap-3 sm:gap-4">
-                    {/* TODO: Use the exercise library's actual imageUrl. */}
                     <img
                       src={exercise.imageUrl}
                       alt=""
@@ -545,9 +543,6 @@ const ActiveWorkout = () => {
                           </td>
 
                           <td className="px-2 py-3">
-                            {/* TODO: Bind to this set's actual weight.
-                                Preserve blank inputs until the user enters
-                                a value; do not silently convert blank to 0. */}
                             <Input
                               type="number"
                               min={0}
@@ -615,8 +610,6 @@ const ActiveWorkout = () => {
                 </CardContent>
 
                 <CardFooter className="border-t px-4 pt-4 sm:px-6">
-                  {/* TODO: Append a new set with blank weight and reps.
-                      Keep existing set entries and their values intact. */}
                   <Button
                     type="button"
                     variant="outline"
@@ -634,8 +627,6 @@ const ActiveWorkout = () => {
               </Card>
             ))}
 
-            {/* TODO: Open the shared exercise picker and add the chosen
-                exercise to this session with blank set inputs. */}
             <Button
               onClick={() => openExercisePicker()}
               type="button"
@@ -670,8 +661,6 @@ const ActiveWorkout = () => {
                 recording your weights and reps.
               </p>
 
-              {/* TODO: Open the exercise picker with name search,
-                  equipment filters, and body-part filters. */}
               <Button
                 onClick={() => openExercisePicker()}
                 type="button"
@@ -706,9 +695,6 @@ const ActiveWorkout = () => {
           </div>
 
           <div className="flex w-full gap-3 sm:w-auto">
-            {/* TODO: Confirm discarding entered results, clear the
-                session draft, and return to the appropriate entry screen.
-                Cancelling must not save a completed workout. */}
             <Button
               onClick={() => setCancelOpen(true)}
               disabled={saving}

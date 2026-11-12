@@ -63,12 +63,8 @@ const bodyPartOptions = [
   "Core",
 ];
 
-// TODO: Replace these design examples with GET /exercises data,
-// including each exercise's actual _id and imageUrl.
 
 
-// TODO: Replace this selected-exercise preview with local draft state.
-// A new manual routine starts with an empty name and no exercises.
 
 
 
@@ -80,7 +76,6 @@ const RoutineFilter = ({ id, label, options, value, onValueChange, disabled = fa
         {label}
       </label>
 
-      {/* TODO: Store the selected filter and apply it to the library. */}
       <Combobox
         items={options}
         value={value}
@@ -408,7 +403,6 @@ const AddRoutine = ({
   const builderContent = (
     <section aria-labelledby="routine-builder-heading" className="space-y-6">
       <div>
-        {/* TODO: Return to the saved-routines view. */}
         <Button
           type="button"
           variant="ghost"
@@ -465,12 +459,6 @@ const AddRoutine = ({
             Routine name
           </label>
 
-          {/*
-            TODO: Replace this sample defaultValue with controlled state.
-            Start new routines with an empty name.
-            Require a nonblank, trimmed name before enabling exercise
-            search, filters, and selection.
-          */}
           <Input
             id="manual-routine-name"
             type="text"
@@ -518,8 +506,6 @@ const AddRoutine = ({
                 Search exercises
               </label>
 
-              {/* TODO: Store the search text and match exercise names
-                  without regard to capitalization or surrounding spaces. */}
               <div className="relative">
                 <HugeiconsIcon
                   icon={Search01Icon}
@@ -539,14 +525,6 @@ const AddRoutine = ({
               </div>
             </div>
 
-            {/*
-              TODO: Reuse the Exercises page's combined filtering rules:
-              - Name, equipment, and body-part filters work together.
-              - Free weights includes barbell and dumbbell.
-              - Machines matches machine.
-              - Clearing a filter or choosing All removes that restriction.
-              - Filtering does not remove exercises already in the draft.
-            */}
             <div className="grid gap-4 sm:grid-cols-2">
               <RoutineFilter
                 id="manual-equipment-filter"
@@ -565,8 +543,7 @@ const AddRoutine = ({
               />
             </div>
 
-            {/* TODO: Show the real filtered count and loading, error,
-                and no-matching-exercises states in this library area. */}
+            {/* TODO: Add exercise-library loading and no-matching-exercises states. */}
             <p className="text-xs text-muted-foreground">
               {filteredExercises.length} of {exercises.length} exercises shown            </p>
 
@@ -590,7 +567,6 @@ const AddRoutine = ({
                       selectedExercises.length >= 15
                     }
                   >
-                    {/* TODO: Use this exercise's actual imageUrl. */}
                     <img
                       src={exercise.imageUrl}
                       alt=""
@@ -646,7 +622,6 @@ const AddRoutine = ({
                 </CardTitle>
               </div>
 
-              {/* TODO: Display the actual selected-exercise count. */}
               <span className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-medium text-orange-700">
                 {selectedExercises.length} / 15 exercises
               </span>
@@ -664,8 +639,7 @@ const AddRoutine = ({
           </CardHeader>
 
           <CardContent className="px-5 sm:px-6">
-            {/* TODO: Render the actual selected exercises in draft order.
-                After adding an exercise, bring its set input into view. */}
+            {/* TODO: Bring the newly added exercise's set input into view. */}
             {selectedExercises.length > 0 ? (
               <ol
                 aria-label="Selected exercises in training order"
@@ -740,9 +714,6 @@ const AddRoutine = ({
                           Planned sets
                         </label>
 
-                        {/* TODO: Store this exercise's set count in the
-                            draft. Require a whole number of at least 1.
-                            Do not add planned weight or reps inputs. */}
                         <Input
                           id={`manual-sets-${exercise._id}`}
                           type="number"
@@ -791,9 +762,6 @@ const AddRoutine = ({
                           />
                         </Button>
 
-                        {/* TODO: Remove this entry from the draft and
-                            update its library selection indicator.
-                            Do not delete the catalog exercise. */}
                         <Button
                           type="button"
                           variant="ghost"
@@ -861,7 +829,7 @@ const AddRoutine = ({
           </div>
 
           <div className="flex w-full gap-3 md:w-auto">
-            {/* TODO: Discard the local draft and return to My Routines. */}
+            {/* TODO: Reset the unsaved create-routine draft when cancelling. */}
             <Button
               type="button"
               variant="outline"

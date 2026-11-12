@@ -5,17 +5,29 @@ import { connectDB } from "./config/db.js";
 import router from "./routes/routes.js";
 import cors from "cors";
 import path from "path";
-
+import { rateLimit } from "express-rate-limit";
 dotenv.config();
 const __dirname = path.resolve();
 const app = express();
 if (process.env.NODE_ENV !== "production") {
 app.use(cors({ origin: "http://localhost:5173", })); // Allow requests from the frontend
 }
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 100,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: {
+    error: "Too many requests. Please try again shortly.",
+  },
+});
+
+app.use("/api", apiLimiter);
+
 app.use(clerkMiddleware());
 await connectDB();
 app.use(express.json());
-app.use(router);
+app.use("/api", router);
 
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(path.join(__dirname, "../Frontend/dist")));

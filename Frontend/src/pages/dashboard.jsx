@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/react";
+import { useAuth, useUser } from "@clerk/react";
 import { useSearchParams } from "react-router";
 import showdownImage from "@/assets/RepForge vs. HEVY_ Manga Showdown.png";
 import Loading from "@/components/Loading.jsx";
@@ -17,7 +17,6 @@ import {
 
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  Add,
   ArrowRight01Icon,
   Calendar03Icon,
   ChartColumnIcon,
@@ -26,6 +25,22 @@ import {
   Dumbbell01Icon,
   PlusSignIcon,
 } from "@hugeicons/core-free-icons";
+import { useEffect, useState } from "react";
+import api from "@/lib/axios";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart.jsx";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Line,
+  LineChart,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 const guestViews = {
   overview: {
@@ -43,14 +58,157 @@ const guestViews = {
       "Review completed workouts and see the weights and reps you recorded.",
   },
 };
+const dateFormatter = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+
+const weekFormatter = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "short",
+  timeZone: "UTC",
+});
+
+const buildHighlightPoints = (workouts, highlightId) => {
+  if (!highlightId) return [];
+
+  return [...workouts]
+    .sort((a, b) => new Date(a.completedAt) - new Date(b.completedAt))
+    .flatMap((workout) => {
+      const exercises = workout.exercises.filter(
+        (exercise) => exercise.exerciseId === highlightId
+      );
+
+      const bestSet = exercises
+        .flatMap((exercise) => exercise.sets)
+        .filter(
+          (set) =>
+            Number.isFinite(set.weight) &&
+            set.weight >= 0 &&
+            Number.isInteger(set.reps) &&
+            set.reps > 0
+        )
+        .sort((a, b) => b.weight - a.weight || b.reps - a.reps)[0];
+
+      if (!bestSet) return [];
+
+      return [{
+        workoutId: workout._id,
+        completedAt: workout.completedAt,
+        name: exercises[0].name,
+        weight: bestSet.weight,
+        reps: bestSet.reps,
+      }];
+    });
+};
 
 const Dashboard = () => {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, getToken, userId } = useAuth();
+  const { user } = useUser();
   const [searchParams] = useSearchParams();
+
+  const [dashboard, setDashboard] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [retry, setRetry] = useState(0);
+  const [selectedMetric, setSelectedMetric] = useState(null);
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn || !userId) return;
+
+    let active = true;
+
+    const fetchDashboard = async () => {
+      setLoading(true);
+      setError("");
+
+      try {
+        const token = await getToken();
+        if (!active) return;
+
+        const response = await api.get("/dashboard", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (active) {
+          setDashboard({ ...response.data, loadedFor: userId });
+          setSelectedMetric(null);
+        }
+      } catch (error) {
+        if (active) {
+          setError(
+            error.response?.data?.error ||
+            "Could not load your dashboard. Please try again."
+          );
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    fetchDashboard();
+
+    return () => {
+      active = false;
+    };
+  }, [isLoaded, isSignedIn, getToken, userId, retry]);
+
+  const statCards = [
+    {
+      title: "Workouts this week",
+      description: "Completed sessions · current week",
+      icon: Calendar03Icon,
+      value: dashboard?.stats?.workoutsThisWeek ?? 0,
+    },
+    {
+      title: "Sets logged this week",
+      description: "Recorded sets · current week",
+      icon: Dumbbell01Icon,
+      value: dashboard?.stats?.setsThisWeek ?? 0,
+    },
+    {
+      title: "Total workouts",
+      description: "Completed sessions · all time",
+      icon: Clock01Icon,
+      value: dashboard?.stats?.totalWorkouts ?? 0,
+    },
+  ];
+
+  const progressPoints = buildHighlightPoints(
+    dashboard?.workoutsCompleted ?? [],
+    dashboard?.highlightExercise
+  );
+
+  const latest = progressPoints.at(-1);
+  const previous = progressPoints.at(-2);
+
+  const defaultMetric =
+    latest && (latest.weight === 0 || latest.weight === previous?.weight)
+      ? "reps"
+      : "weight";
+
+  const chartMetric = selectedMetric ?? defaultMetric;
 
   if (!isLoaded) return <Loading />;
 
   if (isSignedIn) {
+    if (error) {
+      return (
+        <main className="mx-auto max-w-6xl space-y-4 px-6 py-10">
+          <p role="alert" className="text-destructive">{error}</p>
+          <Button onClick={() => setRetry((current) => current + 1)}>
+            Try again
+          </Button>
+        </main>
+      );
+    }
+
+    if (loading || dashboard?.loadedFor !== userId) {
+      return <Loading message="Loading your dashboard..." />;
+    }
     return (
       <main className="mx-auto max-w-6xl space-y-8 px-6 py-10 md:py-12">
 
@@ -59,9 +217,8 @@ const Dashboard = () => {
             YOUR TRAINING SPACE
           </p>
 
-          {/* TODO: Replace "athlete" with the signed-in user's display name. */}
           <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Welcome back, athlete.
+            Welcome back, {dashboard.name || user?.fullName || user?.username || "athlete"}.
           </h1>
 
           <p className="mt-3 text-base leading-relaxed text-muted-foreground">
@@ -109,7 +266,6 @@ const Dashboard = () => {
             </CardContent>
 
             <CardFooter className="mt-auto px-6">
-              {/* TODO: Navigate to the routine-builder page. */}
               <AddRoutine />
             </CardFooter>
           </Card>
@@ -166,23 +322,7 @@ const Dashboard = () => {
           aria-label="Training summary"
           className="grid gap-4 sm:grid-cols-3"
         >
-          {[
-            {
-              title: "Workouts this week",
-              description: "Completed sessions · current week",
-              icon: Calendar03Icon,
-            },
-            {
-              title: "Sets logged this week",
-              description: "Recorded sets · current week",
-              icon: Dumbbell01Icon,
-            },
-            {
-              title: "Total workouts",
-              description: "Completed sessions · all time",
-              icon: Clock01Icon,
-            },
-          ].map((stat) => (
+          {statCards.map((stat) => (
             <Card key={stat.title} className="rounded-2xl py-5 shadow-sm">
               <CardContent className="px-5">
                 <div className="flex items-center justify-between gap-3">
@@ -199,12 +339,8 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                {/* TODO: Display the corresponding backend-calculated count. */}
-                <p
-                  aria-label="Not available yet"
-                  className="mt-4 text-4xl font-semibold tracking-tight"
-                >
-                  —
+                <p className="mt-4 text-4xl font-semibold tracking-tight">
+                  {stat.value}
                 </p>
 
                 <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
@@ -238,34 +374,115 @@ const Dashboard = () => {
             </CardHeader>
 
             <CardContent className="px-6">
-              {/*
-              TODO:
-              1. Backend calculates progress from comparable logged sessions.
-              2. Gemini selects the most impressive progressing exercise
-                 this week from those calculated summaries.
-              3. Render its actual session history in a shadcn line chart.
-                 Show recorded weight with associated reps in the tooltip;
-                 use reps for bodyweight exercises.
-              4. Keep an empty state when there is insufficient history.
-            */}
-              <div className="flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-6 py-10 text-center">
-                <div className="mb-5 flex size-14 items-center justify-center rounded-2xl border bg-background text-orange-600 shadow-sm">
-                  <HugeiconsIcon
-                    icon={ChartLineData01Icon}
-                    size={28}
-                    aria-hidden="true"
-                  />
+              {dashboard.highlightUnavailable ? (
+                <div
+                  role="status"
+                  className="flex min-h-72 items-center justify-center rounded-xl border border-dashed bg-muted/20 px-6 py-10 text-center"
+                >
+                  <p className="text-sm text-muted-foreground">
+                    Feature currently unavailable
+                  </p>
                 </div>
+              ) : progressPoints.length >= 2 ? (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold">{latest.name}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Heaviest set per session; equal weights use the highest reps.
+                      </p>
+                    </div>
 
-                <h3 className="text-base font-semibold">
-                  Give your progress a starting point
-                </h3>
+                    <div className="flex gap-2">
+                      {["weight", "reps"].map((metric) => (
+                        <Button
+                          key={metric}
+                          type="button"
+                          variant={chartMetric === metric ? "default" : "outline"}
+                          onClick={() => setSelectedMetric(metric)}
+                        >
+                          {metric === "weight" ? "Weight" : "Reps"}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
 
-                <p className="mt-2 max-w-xs text-sm leading-6 text-muted-foreground">
-                  Log the same exercise across multiple workouts to see
-                  how your weights and reps develop.
-                </p>
-              </div>
+                  <ChartContainer
+                    config={{
+                      weight: { label: "Weight", color: "#ea580c" },
+                      reps: { label: "Reps", color: "#ea580c" },
+                    }}
+                    className="h-72 w-full aspect-auto"
+                  >
+                    <LineChart
+                      accessibilityLayer
+                      data={progressPoints}
+                      margin={{ left: 0, right: 12 }}
+                    >
+                      <CartesianGrid vertical={false} />
+
+                      <XAxis
+                        dataKey="completedAt"
+                        tickLine={false}
+                        axisLine={false}
+                        minTickGap={24}
+                        tickFormatter={(value) =>
+                          new Date(value).toLocaleDateString("en-GB", {
+                            day: "numeric",
+                            month: "short",
+                          })
+                        }
+                      />
+
+                      <YAxis
+                        width={40}
+                        tickLine={false}
+                        axisLine={false}
+                        allowDecimals={chartMetric === "weight"}
+                      />
+
+                      <ChartTooltip
+                        content={
+                          <ChartTooltipContent
+                            labelFormatter={(_label, payload) =>
+                              dateFormatter.format(
+                                new Date(payload[0].payload.completedAt)
+                              )
+                            }
+                            formatter={(_value, _name, item) => (
+                              <span className="font-medium">
+                                Weight: {item.payload.weight}
+                                {" · "}Reps: {item.payload.reps}
+                              </span>
+                            )}
+                          />
+                        }
+                      />
+
+                      <Line
+                        type="linear"
+                        dataKey={chartMetric}
+                        stroke={`var(--color-${chartMetric})`}
+                        strokeWidth={2}
+                        dot={{ r: 4 }}
+                      />
+                    </LineChart>
+                  </ChartContainer>
+                </div>
+              ) : (
+                <div className="flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-6 py-10 text-center">
+                  <div className="mb-5 flex size-14 items-center justify-center rounded-2xl border bg-background text-orange-600 shadow-sm">
+                    <HugeiconsIcon icon={ChartLineData01Icon} size={28} aria-hidden="true" />
+                  </div>
+                  <h3 className="text-base font-semibold">
+                    Give your progress a starting point
+                  </h3>
+                  <p className="mt-2 max-w-xs text-sm leading-6 text-muted-foreground">
+                    Log the same exercise across multiple workouts to see how your
+                    weights and reps develop.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -287,29 +504,66 @@ const Dashboard = () => {
             </CardHeader>
 
             <CardContent className="px-6">
-              {/*
-              TODO: Group completed workouts into the last six calendar
-              weeks in backend code, then render their counts in a
-              shadcn bar chart. Include workouts started from scratch.
-            */}
-              <div className="flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-6 py-10 text-center">
-                <div className="mb-5 flex size-14 items-center justify-center rounded-2xl border bg-background text-orange-600 shadow-sm">
-                  <HugeiconsIcon
-                    icon={ChartColumnIcon}
-                    size={28}
-                    aria-hidden="true"
-                  />
+              {dashboard.stats.totalWorkouts > 0 ? (
+                <ChartContainer
+                  config={{
+                    workouts: { label: "Workouts", color: "#ea580c" },
+                  }}
+                  className="h-72 w-full aspect-auto"
+                >
+                  <BarChart accessibilityLayer data={dashboard.weeklyTraining}>
+                    <CartesianGrid vertical={false} />
+
+                    <XAxis
+                      dataKey="weekStart"
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) =>
+                        weekFormatter.format(new Date(value))
+                      }
+                    />
+
+                    <YAxis
+                      width={32}
+                      allowDecimals={false}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+
+                    <ChartTooltip
+                      content={
+                        <ChartTooltipContent
+                          labelFormatter={(_label, payload) =>
+                            "Week of " +
+                            weekFormatter.format(
+                              new Date(payload[0].payload.weekStart)
+                            )
+                          }
+                        />
+                      }
+                    />
+
+                    <Bar
+                      dataKey="workouts"
+                      fill="var(--color-workouts)"
+                      radius={[6, 6, 0, 0]}
+                    />
+                  </BarChart>
+                </ChartContainer>
+              ) : (
+                <div className="flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-6 py-10 text-center">
+                  <div className="mb-5 flex size-14 items-center justify-center rounded-2xl border bg-background text-orange-600 shadow-sm">
+                    <HugeiconsIcon icon={ChartColumnIcon} size={28} aria-hidden="true" />
+                  </div>
+                  <h3 className="text-base font-semibold">
+                    Build your training rhythm
+                  </h3>
+                  <p className="mt-2 max-w-xs text-sm leading-6 text-muted-foreground">
+                    Your completed sessions will appear here, making your weekly
+                    consistency easy to follow.
+                  </p>
                 </div>
-
-                <h3 className="text-base font-semibold">
-                  Build your training rhythm
-                </h3>
-
-                <p className="mt-2 max-w-xs text-sm leading-6 text-muted-foreground">
-                  Your completed sessions will appear here, making your
-                  weekly consistency easy to follow.
-                </p>
-              </div>
+              )}
             </CardContent>
           </Card>
         </section>
@@ -327,33 +581,62 @@ const Dashboard = () => {
             </CardHeader>
 
             <CardContent className="px-6">
-              {/*
-              TODO: Fetch dashboard data only after authentication and
-              successful user synchronization. Handle loading and errors.
+              {dashboard.recentWorkouts.length > 0 ? (
+                <div className="divide-y">
+                  {dashboard.recentWorkouts.map((workout) => {
+                    const setCount = workout.exercises.reduce(
+                      (total, exercise) => total + exercise.sets.length,
+                      0
+                    );
 
-              Replace this empty state with the latest three workouts:
-              workout name, completion date, exercise count, and set count.
-            */}
-              <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-dashed bg-muted/20 px-6 py-10 text-center sm:flex-row sm:text-left">
-                <div className="flex size-12 shrink-0 items-center justify-center rounded-xl border bg-background text-muted-foreground">
-                  <HugeiconsIcon
-                    icon={Clock01Icon}
-                    size={24}
-                    aria-hidden="true"
-                  />
+                    return (
+                      <div
+                        key={workout._id}
+                        className="flex flex-wrap items-center justify-between gap-3 py-4 first:pt-0 last:pb-0"
+                      >
+                        <div>
+                          <h3 className="font-semibold">{workout.name}</h3>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {dateFormatter.format(new Date(workout.completedAt))}
+                            {" · "}{workout.exercises.length} exercises
+                            {" · "}{setCount} sets
+                          </p>
+                        </div>
+
+                        <Link
+                          to="/workoutshistory"
+                          className={cn(
+                            buttonVariants({ variant: "outline" }),
+                            "h-10 gap-2 rounded-lg px-4"
+                          )}
+                        >
+                          View history
+                          <HugeiconsIcon
+                            icon={ArrowRight01Icon}
+                            size={16}
+                            aria-hidden="true"
+                          />
+                        </Link>
+                      </div>
+                    );
+                  })}
                 </div>
-
-                <div>
-                  <h3 className="text-base font-semibold">
-                    Make your next session count
-                  </h3>
-
-                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                    Finish a workout to add it to your history. Your latest
-                    sessions will appear here.
-                  </p>
+              ) : (
+                <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-dashed bg-muted/20 px-6 py-10 text-center sm:flex-row sm:text-left">
+                  <div className="flex size-12 shrink-0 items-center justify-center rounded-xl border bg-background text-muted-foreground">
+                    <HugeiconsIcon icon={Clock01Icon} size={24} aria-hidden="true" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-semibold">
+                      Make your next session count
+                    </h3>
+                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                      Finish a workout to add it to your history. Your latest sessions
+                      will appear here.
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </section>
