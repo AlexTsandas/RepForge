@@ -1026,6 +1026,11 @@ ${JSON.stringify(availableExercises)}
       return res.status(429).json({
         error: error.message,
       });
+      if (error.status === 503) {
+        return res.status(503).json({
+          error: "The AI trainer is temporarily busy. Please try again shortly.",
+        });
+      }
     }
 
     console.error("Error generating routine:", error);

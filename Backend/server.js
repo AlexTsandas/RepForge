@@ -4,11 +4,13 @@ import dotenv from "dotenv";
 import { connectDB } from "./config/db.js";
 import router from "./routes/routes.js";
 import cors from "cors";
-import path from "path";
 import { rateLimit } from "express-rate-limit";
+
 dotenv.config();
-const __dirname = path.resolve();
 const app = express();
+if (process.env.VERCEL) {
+  app.set("trust proxy", 1);
+}
 if (process.env.NODE_ENV !== "production") {
 app.use(cors({ origin: "http://localhost:5173", })); // Allow requests from the frontend
 }
@@ -29,12 +31,6 @@ await connectDB();
 app.use(express.json());
 app.use("/api", router);
 
-if (process.env.NODE_ENV === "production") {
-  app.use(express.static(path.join(__dirname, "../Frontend/dist")));
-  app.get("/{*splat}", (req, res) => {
-    res.sendFile(path.join(__dirname, "../Frontend/dist/index.html"));
-  });
-}
 const PORT = process.env.PORT || 5000;
 
 
