@@ -1,4 +1,5 @@
 import { useAuth, useUser } from "@clerk/react";
+import GuestFeaturePreview from "@/components/GuestFeaturePreview.jsx";
 import { useSearchParams } from "react-router";
 import showdownImage from "@/assets/RepForge vs. HEVY_ Manga Showdown.png";
 import Loading from "@/components/Loading.jsx";
@@ -645,7 +646,10 @@ const Dashboard = () => {
   }
 
   const preview = searchParams.get("preview");
-  const content =
+
+  if (preview === "routines" || preview === "history") {
+    return <GuestFeaturePreview type={preview} />;
+  } const content =
     preview === "routines" || preview === "history"
       ? guestViews[preview]
       : guestViews.overview;

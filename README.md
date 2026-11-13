@@ -4,8 +4,6 @@ RepForge is a fitness app for creating routines, logging workouts, and tracking 
 
 **[Try RepForge live](https://repforge-two-topaz.vercel.app/)**
 
-The app is deployed, with a few small improvements still in progress.
-
 ## Tech stack
 
 - Frontend: React, Vite, JavaScript/JSX, React Router, Axios, Tailwind CSS 4, shadcn/ui (Base UI)
@@ -54,7 +52,3 @@ All endpoints below use the `/api` prefix. Only `GET /api/exercises` is public; 
 | POST | `/api/sync-users` | Find or create the authenticated user's MongoDB profile |
 
 Routines contain ordered exercise references and planned set counts. AI generation uses the available exercise catalog and checks the returned routine before saving. Completed workouts store exercise-name snapshots and actual sets with weights and reps. An optional `routineId` records the source routine; workouts can also be created from scratch.
-
-## Next steps
-
-Finish the remaining small improvements and polish the deployed app. RepForge is still in development.
